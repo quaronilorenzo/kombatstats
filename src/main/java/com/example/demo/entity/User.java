@@ -18,6 +18,15 @@ public class User {
     @Enumerated(EnumType.STRING)
     private List<Sport> sport;
 
+    public User(List<Sport> sport, Date birthDate, String email, String lastName, String firstName, Long id) {
+        this.sport = sport;
+        this.birthDate = birthDate;
+        this.email = email;
+        this.lastName = lastName;
+        this.firstName = firstName;
+        this.id = id;
+    }
+
     public Long getId() {
         return id;
     }
