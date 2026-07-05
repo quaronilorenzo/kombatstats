@@ -6,6 +6,9 @@ import com.example.demo.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Optional;
+
 @RequestMapping("users")
 @RestController
 public class UserController{
@@ -15,15 +18,20 @@ public class UserController{
     @PostMapping
     public User addUser(@RequestBody UserRequest request) {
         return userService.addUser(
-                request.firstName,
-                request.lastName,
-                request.email,
-                request.birthDate,
-                request.sport);
+                request.firstName(),
+                request.lastName(),
+                request.email(),
+                request.birthDate(),
+                request.sport());
     }
 
-    @GetMapping("/hello-world")
-    public void helloWorld(){
-        System.out.println("Hello, World!");
+    @GetMapping("/allusers")
+    public List<User> getAllUsers(){
+        return userService.findAll();
+    }
+
+    @GetMapping("/userbyid")
+    public Optional<User> getUserById(@RequestParam int id){
+        return userService.findUserById(id);
     }
 }

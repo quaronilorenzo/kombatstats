@@ -9,7 +9,7 @@ import java.util.List;
 public class User {
     @Id
     @GeneratedValue(strategy=GenerationType.AUTO)
-    private Long id;
+    private int id;
     private String firstName;
     private String lastName;
     private String email;
@@ -17,21 +17,20 @@ public class User {
     @ElementCollection
     @Enumerated(EnumType.STRING)
     private List<Sport> sport;
-
-    public User(List<Sport> sport, Date birthDate, String email, String lastName, String firstName, Long id) {
+    public User(){}
+    public User(List<Sport> sport, Date birthDate, String email, String lastName, String firstName) {
         this.sport = sport;
         this.birthDate = birthDate;
         this.email = email;
         this.lastName = lastName;
         this.firstName = firstName;
-        this.id = id;
     }
 
-    public Long getId() {
+    public int getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(int id) {
         this.id = id;
     }
 
