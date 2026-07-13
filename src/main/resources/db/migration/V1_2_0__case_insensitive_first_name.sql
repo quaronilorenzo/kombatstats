@@ -1,0 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS citext;
+
+ALTER TABLE users
+
+ALTER COLUMN first_name TYPE citext;
