@@ -14,7 +14,10 @@ import java.util.Optional;
 public class UserService {
     @Autowired
     UserRepository userRepository;
-
+    public User addUser(User inputUser) {
+        User user = new User(inputUser.getSport(), inputUser.getBirthDate(), inputUser.getEmail(), inputUser.getLastName(), inputUser.getFirstName());
+        return userRepository.save(user);
+    }
     public User addUser(String firstName, String lastName, String email, Date birthDate, List<Sport> sport) {
         User user = new User(sport, birthDate, email, lastName, firstName);
         return userRepository.save(user);
