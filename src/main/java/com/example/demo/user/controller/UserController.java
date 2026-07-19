@@ -5,11 +5,13 @@ import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.mapper.UserMapper;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.service.UserService;
+import org.apache.coyote.Response;
 import org.hibernate.query.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,13 +21,15 @@ public class UserController{
 
     @PostMapping
     public UserResponse addUser(@RequestBody UserRequest request) {
-        User user = _userService.addUser(userMapper.userRequestToUser(request));
-        return new UserResponse(user.getFirstName(), user.getLastName(), user.getBirthDate(), user.getSport());
+        User savedUser = _userService.addUser(userMapper.userRequestToUser(request));
+        return userMapper.userToUserResponse(savedUser);
     }
 
     @GetMapping("/allusers")
-    public List<User> getAllUsers(){
-        return _userService.findAll();
+    public List<UserResponse> getAllUsers(){
+        List<UserResponse> allUsersResponse = new ArrayList<>();
+        _userService.findAll().forEach(user -> { allUsersResponse.add(userMapper.userToUserResponse(user));});
+        return allUsersResponse;
     }
 
     @GetMapping("/userbyid")
