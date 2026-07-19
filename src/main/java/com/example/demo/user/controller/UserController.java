@@ -34,8 +34,8 @@ public class UserController{
     }
 
     @GetMapping("/userbyname")
-    public Optional<User> getUserByName(@RequestParam String name){
-        return _userService.findUserByFirstname(name);
+    public ResponseEntity<User> getUserByName(@RequestParam String name){
+        return _userService.findUserByFirstname(name).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @Autowired
