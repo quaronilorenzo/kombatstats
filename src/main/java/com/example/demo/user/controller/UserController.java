@@ -8,6 +8,7 @@ import com.example.demo.user.service.UserService;
 import org.apache.coyote.Response;
 import org.hibernate.query.Page;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,9 +21,10 @@ import java.util.Optional;
 public class UserController{
 
     @PostMapping
-    public UserResponse addUser(@RequestBody UserRequest request) {
+    public ResponseEntity<UserResponse> addUser(@RequestBody UserRequest request) {
         User savedUser = _userService.addUser(userMapper.userRequestToUser(request));
-        return userMapper.userToUserResponse(savedUser);
+        UserResponse userResponse = userMapper.userToUserResponse(savedUser);
+        return new ResponseEntity<UserResponse>(userResponse, HttpStatus.CREATED);
     }
 
     @GetMapping("/allusers")
