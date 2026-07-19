@@ -7,6 +7,7 @@ import com.example.demo.user.entity.User;
 import com.example.demo.user.service.UserService;
 import org.hibernate.query.Page;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,8 +19,8 @@ public class UserController{
 
     @PostMapping
     public UserResponse addUser(@RequestBody UserRequest request) {
-        _userService.addUser(userMapper.userRequestToUser(request));
-        return new UserResponse(request.firstName(), request.lastName(), request.birthDate(), request.sport());
+        User user = _userService.addUser(userMapper.userRequestToUser(request));
+        return new UserResponse(user.getFirstName(), user.getLastName(), user.getBirthDate(), user.getSport());
     }
 
     @GetMapping("/allusers")
@@ -28,8 +29,8 @@ public class UserController{
     }
 
     @GetMapping("/userbyid")
-    public Optional<User> getUserById(@RequestParam int id){
-        return _userService.findUserById(id);
+    public ResponseEntity<User> getUserById(@RequestParam int id){
+            return _userService.findUserById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/userbyname")
