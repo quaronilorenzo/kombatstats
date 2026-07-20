@@ -1,6 +1,7 @@
 package com.example.demo.user.entity;
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 
@@ -13,12 +14,12 @@ public class User {
     private String firstName;
     private String lastName;
     private String email;
-    private Date birthDate;
+    private LocalDate birthDate;
     @ElementCollection
     @Enumerated(EnumType.STRING)
     private List<Sport> sport;
     public User(){}
-    public User(List<Sport> sport, Date birthDate, String email, String lastName, String firstName) {
+    public User(List<Sport> sport, LocalDate birthDate, String email, String lastName, String firstName) {
         this.sport = sport;
         this.birthDate = birthDate;
         this.email = email;
@@ -58,11 +59,11 @@ public class User {
         this.email = email;
     }
 
-    public Date getBirthDate() {
+    public LocalDate getBirthDate() {
         return birthDate;
     }
 
-    public void setBirthDate(Date birthDate) {
+    public void setBirthDate(LocalDate birthDate) {
         this.birthDate = birthDate;
     }
 
