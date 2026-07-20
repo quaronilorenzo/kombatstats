@@ -16,6 +16,7 @@ public record UserRequest(
         @NotBlank(message = "User must have a last name.")
         String lastName,
         @Email(message = "User must have a valid email")
+        @NotBlank
         String email,
         @NotNull(message = "Birth date is required")
         @Past(message = "Birth date must be in the past")
