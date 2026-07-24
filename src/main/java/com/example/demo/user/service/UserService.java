@@ -1,5 +1,6 @@
 package com.example.demo.user.service;
 
+import com.example.demo.user.exceptions.DuplicatedUserException;
 import com.example.demo.user.entity.Sport;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
@@ -7,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,9 +16,10 @@ public class UserService {
     @Autowired
     UserRepository userRepository;
     public User addUser(User inputUser) {
-        //TODO getter in entity, not here only the object
-        User user = new User(inputUser.getSport(), inputUser.getBirthDate(), inputUser.getEmail(), inputUser.getLastName(), inputUser.getFirstName());
-        return userRepository.save(user);
+        if(userRepository.findByEmail(inputUser.getEmail()).isPresent()){
+            throw new DuplicatedUserException(inputUser.getEmail());
+        }
+        return userRepository.save(inputUser);
     }
     public User addUser(String firstName, String lastName, String email, LocalDate birthDate, List<Sport> sport) {
         User user = new User(sport, birthDate, email, lastName, firstName);

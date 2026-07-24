@@ -37,14 +37,13 @@ public class UserController{
 
     @GetMapping("/userbyid")
     public ResponseEntity<User> getUserById(@RequestParam int id){
-            return _userService.findUserById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        return _userService.findUserById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/userbyname")
     public ResponseEntity<User> getUserByName(@RequestParam String name){
         return _userService.findUserByFirstname(name).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
-
     @Autowired
     private UserService _userService;
     @Autowired

@@ -21,6 +21,7 @@ public class User {
     private String lastName;
     @Email(message = "User must have a valid email")
     @NotBlank(message = "User must have an email")
+    @Column(unique=true)
     private String email;
     @NotNull(message = "Birth date is required")
     @Past(message = "Birth date must be in the past")
@@ -36,7 +37,6 @@ public class User {
         this.lastName = lastName;
         this.firstName = firstName;
     }
-
     public int getId() {
         return id;
     }
