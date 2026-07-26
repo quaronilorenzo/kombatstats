@@ -15,7 +15,7 @@ public record UserRequest(
         String firstName,
         @NotBlank(message = "User must have a last name.")
         String lastName,
-        @Email(message = "User must have a valid email")
+        @Email(regexp = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$", message = "User must have a valid email")
         @NotBlank
         String email,
         @NotNull(message = "Birth date is required")
