@@ -23,24 +23,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Object> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
         String message = ex.getMessage() != null ? ex.getMessage() : "";
         ProblemDetail problem;
-        if (message.contains("users_email_format")) {
+        if (message.contains(UserErrors.constraintEmailFormat)) {
             problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "email must be a valid email address");
-            problem.setTitle("Invalid email format");
-            problem.setType(URI.create("http://localhost:8080/invalid-email-format"));
-        } else if (message.contains("users_email_unique")) {
+            problem.setTitle(UserErrors.emailFormatMessage);
+            problem.setType(URI.create(UserErrors.emailFormatUri));
+        } else if (message.contains(UserErrors.constraintEmailUnique)) {
             problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "email is already used");
             problem.setTitle(UserErrors.userDuplicatedMessage);
             problem.setType(URI.create(UserErrors.userDuplicatedUri));
-        } else if (message.contains("users_birth_date_past")) {
+        } else if (message.contains(UserErrors.constraintBirthDatePast)) {
             problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "birthDate must be a date in the past");
-            problem.setTitle("Invalid date");
-            problem.setType(URI.create("http://localhost:8080/date-must-be-past"));
+            problem.setTitle(UserErrors.birthDatePastMessage);
+            problem.setType(URI.create(UserErrors.birthDatePastUri));
         } else {
             problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Database constraint violated");
             problem.setTitle("Data integrity violation");
             problem.setType(URI.create("http://localhost:8080/data-integrity-violation"));
         }
-        return super.handleExceptionInternal(ex, problem, new HttpHeaders(), problem.getStatus(), request);
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(), HttpStatusCode.valueOf(problem.getStatus()), request);
     }
 
     @ExceptionHandler(DuplicatedUserException.class)
@@ -51,7 +51,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 duplicatedUserException.getMessage() + " is already used");
         problem.setTitle(UserErrors.userDuplicatedMessage);
         problem.setType(URI.create(UserErrors.userDuplicatedUri));
-        return super.handleExceptionInternal(duplicatedUserException, problem, new HttpHeaders(), HttpStatus.CONFLICT, request);
+        return super.handleExceptionInternal(duplicatedUserException, problem, new HttpHeaders(), HttpStatusCode.valueOf(problem.getStatus()), request);
     }
     @Override
     public ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -69,22 +69,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             case "NotNull" -> {
                 title = field + " is mandatory";
                 detail = field + " must not be null";
-                uri = "http://localhost:8080/field-is-mandatory";
+                uri = UserErrors.fieldMandatoryUri;
             }
             case "Email" -> {
-                title = "Invalid email format";
+                title = UserErrors.emailFormatMessage;
                 detail = field + " must be a valid email address";
-                uri = "http://localhost:8080/invalid-email-format";
+                uri = UserErrors.emailFormatUri;
             }
             case "Past" -> {
-                title = "Invalid date";
+                title = UserErrors.birthDatePastMessage;
                 detail = field + " must be a date in the past";
-                uri = "http://localhost:8080/date-must-be-past";
+                uri = UserErrors.birthDatePastUri;
             }
             default -> {
                 title = field + " is invalid";
                 detail = field + " failed validation";
-                uri = "http://localhost:8080/field-invalid";
+                uri = UserErrors.fieldInvalidUri;
             }
         }
 
