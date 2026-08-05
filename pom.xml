@@ -71,6 +71,16 @@
 			<artifactId>mockito-core</artifactId>
 			<version>5.12.0</version>
 		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers</artifactId>
+			<version>1.19.6</version>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>postgresql </artifactId>
+			<version>1.19.6</version>
+		</dependency>
 	</dependencies>
 
 	<build>
