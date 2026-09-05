@@ -1,14 +1,9 @@
 package com.example.demo;
 
+import com.example.demo.testcontainers.IntegrationTestContainers;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 
 @TestConfiguration(proxyBeanMethods = false)
-public abstract class PostgreDbTestsConfiguration {
-     static {
-        public final PostgreSQLContainer<?> container =
-
-    }
-}
+@ImportTestcontainers(IntegrationTestContainers.class)
+public class PostgreDbTestsConfiguration {}
