@@ -1,5 +1,10 @@
 package com.example.demo.user.controller;
 
 
-public class UserControllerIntegrationTests {
+import com.example.demo.testcontainers.AbstractIntegrationTest;
+
+public class UserControllerIntegrationTests extends AbstractIntegrationTest {
+
+
+
 }
