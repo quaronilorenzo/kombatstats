@@ -13,6 +13,7 @@ public abstract class AbstractIntegrationTest {
     @BeforeEach
     void resetDatabase(){
         flyway.clean();
+        flyway.migrate();
     }
 
     @Autowired
