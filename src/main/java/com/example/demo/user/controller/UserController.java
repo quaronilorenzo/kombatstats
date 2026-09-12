@@ -36,7 +36,7 @@ public class UserController{
     }
 
     @GetMapping("/userbyid")
-    public ResponseEntity<User> getUserById(@RequestParam int id){
+    public ResponseEntity<User> getUserById(@RequestParam Long id){
         return _userService.findUserById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
