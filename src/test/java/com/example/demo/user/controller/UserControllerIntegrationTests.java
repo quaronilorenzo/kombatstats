@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 public class UserControllerIntegrationTests extends AbstractIntegrationTest {
     @Test
-    void addUser() throws Exception{
+    void shouldReturn201_whenaddUserCorrectly() throws Exception{
         String json = """
         {
           "firstName": "Lorenzo",
