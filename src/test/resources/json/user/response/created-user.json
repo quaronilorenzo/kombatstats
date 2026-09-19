@@ -1,0 +1,9 @@
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "birthDate": "1999-04-23",
+  "sport": [
+    "BJJ",
+    "MMA"
+  ]
+}
