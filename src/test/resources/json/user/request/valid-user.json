@@ -1,0 +1,7 @@
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "lorenzo.quaroni@example.com",
+  "birthDate": "1999-04-23",
+  "sport": ["BJJ", "MMA"]
+}
