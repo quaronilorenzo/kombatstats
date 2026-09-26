@@ -1,7 +1,6 @@
 package com.example.demo.user.service;
 
 import com.example.demo.user.exceptions.DuplicatedUserException;
-import com.example.demo.user.entity.Sport;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +20,8 @@ public class UserService {
         }
         return userRepository.save(inputUser);
     }
-    public User addUser(String firstName, String lastName, String email, LocalDate birthDate, List<Sport> sport) {
-        User user = new User(sport, birthDate, email, lastName, firstName);
+    public User addUser(String firstName, String lastName, String email, LocalDate birthDate) {
+        User user = new User(birthDate, email, lastName, firstName);
         return userRepository.save(user);
     }
     public List<User> findAll(){

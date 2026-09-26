@@ -1,6 +1,6 @@
-package com.example.demo.user.entity;
+package com.example.demo.sport.entity;
 
-public enum Sport {
+public enum SportType {
     BJJ,
     Boxing,
     MMA,

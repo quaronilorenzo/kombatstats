@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -26,12 +25,8 @@ public class User {
     @NotNull(message = "Birth date is required")
     @Past(message = "Birth date must be in the past")
     private LocalDate birthDate;
-    @ElementCollection
-    @Enumerated(EnumType.STRING)
-    private List<Sport> sport;
     public User(){}
-    public User(List<Sport> sport, LocalDate birthDate, String email, String lastName, String firstName) {
-        this.sport = sport;
+    public User(LocalDate birthDate, String email, String lastName, String firstName) {
         this.birthDate = birthDate;
         this.email = email;
         this.lastName = lastName;
@@ -77,12 +72,5 @@ public class User {
         this.birthDate = birthDate;
     }
 
-    public List<Sport> getSport() {
-        return sport;
-    }
-
-    public void setSport(List<Sport> sport) {
-        this.sport = sport;
-    }
 }
 
