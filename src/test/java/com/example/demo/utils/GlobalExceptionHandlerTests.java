@@ -24,8 +24,6 @@ class GlobalExceptionHandlerTests {
     private final GlobalExceptionHandler globalExceptionHandler = new GlobalExceptionHandler();
     private final WebRequest webRequest = mock(WebRequest.class);
 
-    // handleDataIntegrityViolation
-
     @Test
     void handleDataIntegrityViolation_withInvalidEmailFormat_shouldReturnBadRequest() {
         DataIntegrityViolationException ex = new DataIntegrityViolationException(UserErrors.constraintEmailFormat);
@@ -86,8 +84,6 @@ class GlobalExceptionHandlerTests {
         );
     }
 
-    // ---- handleUserDuplicatedException ----
-
     @Test
     void handleUserDuplicatedException_shouldReturnConflictWithEmailInDetail() {
         DuplicatedUserException ex = new DuplicatedUserException("john@example.com");
@@ -102,8 +98,6 @@ class GlobalExceptionHandlerTests {
                 () -> assertEquals(URI.create(UserErrors.userDuplicatedUri), problem.getType())
         );
     }
-
-    // ---- handleMethodArgumentNotValid ----
 
     @Test
     void handleMethodArgumentNotValid_withMissingField_shouldReturnMandatoryFieldError() {

@@ -3,6 +3,7 @@ package com.example.demo.user.controller;
 import com.example.demo.testcontainers.AbstractIntegrationTest;
 import com.example.demo.testcontainers.JsonPathMock;
 import com.example.demo.user.costants.UserErrors;
+import com.example.demo.usersport.costants.UserSportErrors;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
@@ -27,6 +28,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -50,6 +52,10 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         postUser(jsonClasspath).andExpect(status().isCreated());
         String email = JsonPath.read(readJson(jsonClasspath), "$.email");
         return userRepository.findByEmail(email).orElseThrow();
+    }
+
+    private long countUserSports() {
+        return jdbcClient.sql("SELECT count(*) FROM user_sport").query(Long.class).single();
     }
 
     private long countUsers() {
@@ -232,6 +238,79 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         void shouldReturn405_whenMethodIsNotAllowed() throws Exception {
             mockMvc.perform(MockMvcRequestBuilders.delete("/users"))
                     .andExpect(status().isMethodNotAllowed());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /users with nested sports")
+    class AddUserWithSports {
+
+        @Test
+        @DisplayName("201 - user and both sports created in one call")
+        void shouldReturn201WithSports_whenPayloadCarriesSports() throws Exception {
+            postUser(JsonPathMock.VALID_USER_WITH_SPORTS_REQUEST_JSON_PATH)
+                    .andDo(print())
+                    .andExpect(status().isCreated())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(header().exists("Location"))
+                    .andExpect(content().json(readJson(JsonPathMock.VALID_USER_WITH_SPORTS_RESPONSE_JSON_PATH)))
+                    .andExpect(jsonPath("$.sports", hasSize(2)))
+                    .andExpect(jsonPath("$.sports[*].sportType", containsInAnyOrder("BJJ", "Boxing")))
+
+                    .andExpect(jsonPath("$.sports[0].idUserSport").isNumber());
+
+            assertThat(countUsers()).as("rows in users").isEqualTo(1L);
+            assertThat(countUserSports()).as("rows in user_sport").isEqualTo(2L);
+        }
+
+        @Test
+        @DisplayName("201 - the sports field is optional: a user without sports still works")
+        void shouldReturn201_whenSportsFieldIsAbsent() throws Exception {
+            postUser(JsonPathMock.VALID_USER_REQUEST_JSON_PATH)
+                    .andExpect(status().isCreated());
+
+            assertThat(countUsers()).isEqualTo(1L);
+            assertThat(countUserSports()).isZero();
+        }
+
+        @Test
+        @DisplayName("404 + ROLLBACK - unknown sport: the user must NOT be persisted")
+        void shouldRollbackTheUser_whenASportDoesNotExist() throws Exception {
+
+            postUser(JsonPathMock.UNKNOWN_SPORT_REQUEST_JSON_PATH)
+                    .andExpect(status().isBadRequest());
+
+            assertNoUserPersisted();
+            assertThat(countUserSports()).as("rows in user_sport after the rollback").isZero();
+        }
+
+        @Test
+        @DisplayName("409 + ROLLBACK - same sport twice in one payload")
+        void shouldReturn409_whenTheSameSportIsListedTwice() throws Exception {
+            postUser(JsonPathMock.DUPLICATE_SPORTS_REQUEST_JSON_PATH)
+                    .andExpect(status().isConflict())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(409))
+                    .andExpect(jsonPath("$.title").value(UserSportErrors.userSportDuplicatedMessage))
+                    .andExpect(jsonPath("$.detail").value("BJJ is listed more than once"))
+                    .andExpect(jsonPath("$.type").value(UserSportErrors.userSportDuplicatedUri));
+
+            assertNoUserPersisted();
+            assertThat(countUserSports()).isZero();
+        }
+
+        @Test
+        @DisplayName("400 - negative yearsPracticed: @Valid really reaches the nested list")
+        void shouldReturn400_whenNestedYearsPracticedIsNegative() throws Exception {
+
+            postUser(JsonPathMock.NEGATIVE_YEARS_REQUEST_JSON_PATH)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.title").value("sports[0].yearsPracticed is invalid"));
+
+            assertNoUserPersisted();
+            assertThat(countUserSports()).isZero();
         }
     }
 

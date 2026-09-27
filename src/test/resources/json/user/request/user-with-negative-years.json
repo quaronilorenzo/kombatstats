@@ -1,0 +1,13 @@
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "lorenzo.quaroni@example.com",
+  "birthDate": "1999-04-23",
+  "sports": [
+    {
+      "sportType": "MMA",
+      "yearsPracticed": -3.0,
+      "isCompeting": false
+    }
+  ]
+}

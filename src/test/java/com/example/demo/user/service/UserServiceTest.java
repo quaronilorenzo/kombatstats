@@ -1,8 +1,17 @@
 package com.example.demo.user.service;
 
+import com.example.demo.sport.entity.SportType;
+import com.example.demo.user.dto.UserRequest;
+import com.example.demo.user.dto.UserResponse;
+import com.example.demo.user.dto.mapper.UserMapper;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.exceptions.DuplicatedUserException;
 import com.example.demo.user.repository.UserRepository;
+import com.example.demo.usersport.dto.UserSportRequest;
+import com.example.demo.usersport.dto.UserSportResponse;
+import com.example.demo.usersport.dto.mapper.UserSportMapper;
+import com.example.demo.usersport.entity.UserSport;
+import com.example.demo.usersport.service.UserSportService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -11,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -18,12 +28,22 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class UserServiceTest {
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserSportService userSportService;
+    @Mock
+    private UserMapper userMapper;
+    @Mock
+    private UserSportMapper userSportMapper;
     @InjectMocks
     private UserService userService;
 
@@ -78,38 +98,52 @@ public class UserServiceTest {
     }
 
     @Nested
-    @DisplayName("addUser(firstName, lastName, email, birthDate)")
-    class AddUserFromFields {
+    @DisplayName("register(UserRequest)")
+    class Register {
 
-        @Test
-        @DisplayName("builds the user from the arguments and returns what was persisted")
-        void shouldBuildAndReturnUser_fromTheGivenFields() {
-            when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-                User toSave = invocation.getArgument(0);
-                return persisted(toSave, 1L);
-            });
-
-            User result = userService.addUser(FIRST_NAME, LAST_NAME, EMAIL, BIRTH_DATE);
-
-            assertThat(result.getId()).isEqualTo(1L);
-            assertThat(result.getFirstName()).isEqualTo(FIRST_NAME);
-            assertThat(result.getLastName()).isEqualTo(LAST_NAME);
-            assertThat(result.getEmail()).isEqualTo(EMAIL);
-            assertThat(result.getBirthDate()).isEqualTo(BIRTH_DATE);
+        private static UserRequest requestWithSports() {
+            return new UserRequest(FIRST_NAME, LAST_NAME, EMAIL, BIRTH_DATE,
+                    List.of(new UserSportRequest(SportType.BJJ, new BigDecimal("4.5"), true)));
         }
 
         @Test
-        @DisplayName("does NOT reject a duplicated email - unlike addUser(User), it never calls findByEmail")
-        void shouldPersistWithoutDuplicateCheck_whenEmailIsAlreadyUsed() {
-            // Characterisation test: this overload skips the guard that addUser(User) applies,
-            // so a duplicate only fails later, on the database unique constraint.
-            // It documents the current behaviour, it does not endorse it.
-            when(userRepository.save(any(User.class))).thenAnswer(invocation ->
-                    persisted(invocation.getArgument(0), 2L));
+        @DisplayName("saves the user first, then delegates the sports to UserSportService")
+        void shouldPersistUserThenSports_andReturnTheAssembledResponse() {
+            UserRequest request = requestWithSports();
+            User mapped = newUser();
+            User saved = persisted(mapped, 1L);
+            List<UserSport> savedSports = List.of(new UserSport());
+            List<UserSportResponse> sportResponses =
+                    List.of(new UserSportResponse(10L, SportType.BJJ, new BigDecimal("4.5"), true));
+            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, sportResponses);
 
-            User result = userService.addUser(FIRST_NAME, LAST_NAME, EMAIL, BIRTH_DATE);
+            when(userMapper.userRequestToUser(request)).thenReturn(mapped);
+            when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+            when(userRepository.save(mapped)).thenReturn(saved);
+            when(userSportService.createForUser(saved, request.sports())).thenReturn(savedSports);
+            when(userSportMapper.userSportsToUserSportResponses(savedSports)).thenReturn(sportResponses);
+            when(userMapper.userToUserResponse(saved, sportResponses)).thenReturn(expected);
 
-            assertThat(result.getEmail()).isEqualTo(EMAIL);
+            UserResponse result = userService.register(request);
+
+            assertThat(result).isEqualTo(expected);
+
+            verify(userSportService).createForUser(eq(saved), anyList());
+        }
+
+        @Test
+        @DisplayName("never touches the sports when the email is already taken")
+        void shouldNotCreateSports_whenEmailIsAlreadyUsed() {
+            UserRequest request = requestWithSports();
+            User mapped = newUser();
+            when(userMapper.userRequestToUser(request)).thenReturn(mapped);
+            when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(persisted(mapped, 1L)));
+
+            assertThatThrownBy(() -> userService.register(request))
+                    .isInstanceOf(DuplicatedUserException.class)
+                    .hasMessage(EMAIL);
+
+            verify(userSportService, never()).createForUser(any(), anyList());
         }
     }
 

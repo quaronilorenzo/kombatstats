@@ -1,7 +1,10 @@
 package com.example.demo.utils;
 
+import com.example.demo.sport.exceptions.SportNotFoundException;
 import com.example.demo.user.costants.UserErrors;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.usersport.costants.UserSportErrors;
+import com.example.demo.usersport.exceptions.DuplicatedUserSportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
@@ -35,6 +38,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "birthDate must be a date in the past");
             problem.setTitle(UserErrors.birthDatePastMessage);
             problem.setType(URI.create(UserErrors.birthDatePastUri));
+        } else if (message.contains(UserSportErrors.constraintUserSportUnique)) {
+            problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "the user already practices this sport");
+            problem.setTitle(UserSportErrors.userSportDuplicatedMessage);
+            problem.setType(URI.create(UserSportErrors.userSportDuplicatedUri));
+        } else if (message.contains(UserSportErrors.constraintYearsPracticedCheck)) {
+            problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "yearsPracticed must not be negative");
+            problem.setTitle(UserSportErrors.yearsPracticedMessage);
+            problem.setType(URI.create(UserSportErrors.yearsPracticedUri));
         } else {
             problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Database constraint violated");
             problem.setTitle("Data integrity violation");
@@ -45,7 +56,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DuplicatedUserException.class)
     public ResponseEntity<Object> handleUserDuplicatedException(DuplicatedUserException duplicatedUserException, WebRequest request){
-        // RFC 9457 Problem Details for HTTP APIs
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,
                 duplicatedUserException.getMessage() + " is already used");
@@ -53,6 +63,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setType(URI.create(UserErrors.userDuplicatedUri));
         return super.handleExceptionInternal(duplicatedUserException, problem, new HttpHeaders(), HttpStatusCode.valueOf(problem.getStatus()), request);
     }
+    @ExceptionHandler(SportNotFoundException.class)
+    public ResponseEntity<Object> handleSportNotFound(SportNotFoundException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND,
+                "unknown sport: " + ex.getMissingSports());
+        problem.setTitle(UserSportErrors.sportNotFoundMessage);
+        problem.setType(URI.create(UserSportErrors.sportNotFoundUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
+    @ExceptionHandler(DuplicatedUserSportException.class)
+    public ResponseEntity<Object> handleDuplicatedUserSport(DuplicatedUserSportException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                ex.getMessage() + " is listed more than once");
+        problem.setTitle(UserSportErrors.userSportDuplicatedMessage);
+        problem.setType(URI.create(UserSportErrors.userSportDuplicatedUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
     @Override
     public ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         FieldError fieldError = ex.getFieldError();

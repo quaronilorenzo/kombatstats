@@ -8,16 +8,6 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
 
-/**
- * Sport praticato da un utente: la tabella ponte della many-to-many fra users e sport.
- *
- * yearsPracticed e isCompeting stanno qui e non su {@link Sport} perche' dipendono
- * dalla coppia (utente, sport). Marco puo' fare BJJ da 5 anni e Luca da 2 puntando
- * entrambi alla stessa riga di anagrafica.
- *
- * Le due @ManyToOne sono LAZY di proposito: User viene serializzato direttamente dal
- * controller, e un fetch eager qui trascinerebbe in JSON l'intero grafo.
- */
 @Entity
 @Table(
         name = "user_sport",
