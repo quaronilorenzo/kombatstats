@@ -51,6 +51,7 @@ public class UserServiceTest {
     private static final String LAST_NAME = "Rategni";
     private static final String EMAIL = "claudia.rategni@gmail.com";
     private static final LocalDate BIRTH_DATE = LocalDate.of(2007, 4, 13);
+    private static final String PASSWORD = "Str0ngP4ssw0rd!";
 
     private static User newUser() {
         return new User(BIRTH_DATE, EMAIL, LAST_NAME, FIRST_NAME);
@@ -102,7 +103,7 @@ public class UserServiceTest {
     class Register {
 
         private static UserRequest requestWithSports() {
-            return new UserRequest(FIRST_NAME, LAST_NAME, EMAIL, BIRTH_DATE,
+            return new UserRequest(FIRST_NAME, LAST_NAME, EMAIL, BIRTH_DATE, PASSWORD,
                     List.of(new UserSportRequest(SportType.BJJ, new BigDecimal("4.5"), true)));
         }
 

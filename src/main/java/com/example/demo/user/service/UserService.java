@@ -1,5 +1,6 @@
 package com.example.demo.user.service;
 
+import com.example.demo.config.SecurityConfig;
 import com.example.demo.user.dto.UserRequest;
 import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.mapper.UserMapper;
@@ -10,6 +11,8 @@ import com.example.demo.usersport.dto.UserSportResponse;
 import com.example.demo.usersport.dto.mapper.UserSportMapper;
 import com.example.demo.usersport.entity.UserSport;
 import com.example.demo.usersport.service.UserSportService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,23 +23,29 @@ import java.util.Optional;
 public class UserService {
 
     private final UserRepository userRepository;
+
     private final UserSportService userSportService;
+
     private final UserMapper userMapper;
+
     private final UserSportMapper userSportMapper;
-    public UserService(UserRepository userRepository,
-                       UserSportService userSportService,
-                       UserMapper userMapper,
-                       UserSportMapper userSportMapper) {
+
+    private final PasswordEncoder passwordEncoder;
+
+    public UserService(UserRepository userRepository, UserSportService userSportService, UserMapper userMapper, UserSportMapper userSportMapper, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.userSportService = userSportService;
         this.userMapper = userMapper;
         this.userSportMapper = userSportMapper;
+        this.passwordEncoder = passwordEncoder;
     }
+
 
     @Transactional
     public UserResponse register(UserRequest request) {
+        String hashPassword = passwordEncoder.encode(request.password());
         User savedUser = addUser(userMapper.userRequestToUser(request));
-
+        savedUser.setHashPassword(hashPassword);
         List<UserSport> savedSports = userSportService.createForUser(savedUser, request.sports());
         List<UserSportResponse> sportResponses =
                 userSportMapper.userSportsToUserSportResponses(savedSports);

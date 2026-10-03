@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Pattern;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -21,6 +22,12 @@ public record UserRequest(
         @NotNull(message = "Birth date is required")
         @Past(message = "Birth date must be in the past")
         LocalDate birthDate,
+        @NotBlank(message = "User must have a password")
+        @Pattern(
+                regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9])\\S{12,72}$",
+                message = "Password must be 12-72 characters long, with no whitespace, and contain at least one lowercase letter, one uppercase letter, one digit and one special character"
+        )
+        String password,
         @Valid
         List<UserSportRequest> sports
 ) {}

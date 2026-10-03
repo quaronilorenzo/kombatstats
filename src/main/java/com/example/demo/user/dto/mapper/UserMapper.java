@@ -14,6 +14,8 @@ public interface UserMapper
 {
     UserRequest userToUserRequest(User user);
 
+
+    @Mapping(target = "hashPassword", ignore = true)
     User userRequestToUser(UserRequest userRequest);
 
     @Mapping(source = "user.id", target = "id")

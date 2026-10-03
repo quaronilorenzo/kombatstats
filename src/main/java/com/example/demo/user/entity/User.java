@@ -25,6 +25,9 @@ public class User {
     @NotNull(message = "Birth date is required")
     @Past(message = "Birth date must be in the past")
     private LocalDate birthDate;
+    @Column(nullable = false)
+    @NotBlank
+    private String hashPassword;
     public User(){}
     public User(LocalDate birthDate, String email, String lastName, String firstName) {
         this.birthDate = birthDate;
@@ -70,6 +73,14 @@ public class User {
 
     public void setBirthDate(LocalDate birthDate) {
         this.birthDate = birthDate;
+    }
+
+    public String getHashPassword() {
+        return hashPassword;
+    }
+
+    public void setHashPassword(String hashPassword) {
+        this.hashPassword = hashPassword;
     }
 
 }
