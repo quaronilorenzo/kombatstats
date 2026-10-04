@@ -44,8 +44,9 @@ public class UserService {
     @Transactional
     public UserResponse register(UserRequest request) {
         String hashPassword = passwordEncoder.encode(request.password());
-        User savedUser = addUser(userMapper.userRequestToUser(request));
-        savedUser.setHashPassword(hashPassword);
+        User user = userMapper.userRequestToUser(request);
+        user.setHashPassword(hashPassword);
+        User savedUser = addUser(user);
         List<UserSport> savedSports = userSportService.createForUser(savedUser, request.sports());
         List<UserSportResponse> sportResponses =
                 userSportMapper.userSportsToUserSportResponses(savedSports);
