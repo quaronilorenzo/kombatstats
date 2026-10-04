@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -73,7 +74,14 @@ public class UserService {
         return response;
     }
 
-    public List<User> findUserByFirstname(String name) {
-        return userRepository.findByFirstNameIgnoreCase(name);
+    public List<UserResponse> findUserByFirstname(String name) {
+        List<UserResponse> response = new ArrayList<>();
+        List<User> users =  userRepository.findByFirstNameIgnoreCase(name);
+        if(!users.isEmpty()){
+            for(User user : users) {
+                response.add(userMapper.userToUserResponse(user));
+            }
+        }
+        return response;
     }
 }

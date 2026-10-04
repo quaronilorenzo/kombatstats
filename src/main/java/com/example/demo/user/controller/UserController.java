@@ -52,8 +52,8 @@ public class UserController {
     }
 
     @GetMapping("/userbyname")
-    public ResponseEntity<List<User>> getUserByName(@RequestParam String name) {
-        List<User> users = _userService.findUserByFirstname(name);
+    public ResponseEntity<List<UserResponse>> getUserByName(@RequestParam String name) {
+        List<UserResponse> users = _userService.findUserByFirstname(name);
         if(users.isEmpty()){
              return ResponseEntity.notFound().build();
         }
