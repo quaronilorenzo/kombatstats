@@ -1,6 +1,5 @@
 package com.example.demo.user.service;
 
-import com.example.demo.config.SecurityConfig;
 import com.example.demo.user.dto.UserRequest;
 import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.mapper.UserMapper;
@@ -11,7 +10,6 @@ import com.example.demo.usersport.dto.UserSportResponse;
 import com.example.demo.usersport.dto.mapper.UserSportMapper;
 import com.example.demo.usersport.entity.UserSport;
 import com.example.demo.usersport.service.UserSportService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,8 +63,14 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    public Optional<User> findUserById(Long id) {
-        return userRepository.findById(id);
+    public Optional<UserResponse> findUserById(Long id) {
+        Optional<UserResponse> userResponse = Optional.empty();
+        if(userRepository.findById(id).isPresent()){
+            UserResponse user = userMapper.userToUserResponse((userRepository.findById(id).get()));
+            userResponse = Optional.of(user);
+        }
+
+        return userResponse;
     }
 
     public Optional<User> findUserByFirstname(String name) {

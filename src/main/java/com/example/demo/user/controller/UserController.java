@@ -6,8 +6,6 @@ import com.example.demo.user.dto.mapper.UserMapper;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.service.UserService;
 import jakarta.validation.Valid;
-import org.apache.coyote.Response;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -15,7 +13,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @RequestMapping("users")
 @RestController
@@ -49,7 +46,7 @@ public class UserController {
     }
 
     @GetMapping("/userbyid")
-    public ResponseEntity<User> getUserById(@RequestParam Long id) {
+    public ResponseEntity<UserResponse> getUserById(@RequestParam Long id) {
         return _userService.findUserById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
