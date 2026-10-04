@@ -6,6 +6,7 @@ import com.example.demo.user.dto.mapper.UserMapper;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -51,7 +52,12 @@ public class UserController {
     }
 
     @GetMapping("/userbyname")
-    public ResponseEntity<User> getUserByName(@RequestParam String name) {
-        return _userService.findUserByFirstname(name).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<List<User>> getUserByName(@RequestParam String name) {
+        List<User> users = _userService.findUserByFirstname(name);
+        if(users.isEmpty()){
+             return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(users);
+
     }
 }

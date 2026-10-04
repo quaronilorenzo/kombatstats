@@ -15,6 +15,7 @@ public class User {
     @SequenceGenerator(name = "users_seq", sequenceName = "users_seq", allocationSize = 50)
     private Long id;
     @NotBlank(message = "User must have a first name.")
+    @Column(name = "first_name")
     private String firstName;
     @NotBlank(message = "User must have a last name.")
     private String lastName;

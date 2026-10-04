@@ -64,16 +64,16 @@ public class UserService {
     }
 
     public Optional<UserResponse> findUserById(Long id) {
-        Optional<UserResponse> userResponse = Optional.empty();
-        if(userRepository.findById(id).isPresent()){
-            UserResponse user = userMapper.userToUserResponse((userRepository.findById(id).get()));
-            userResponse = Optional.of(user);
+        Optional<UserResponse> response = Optional.empty();
+        Optional<User> user = userRepository.findById(id);
+        if(user.isPresent()){
+            UserResponse userResponse = userMapper.userToUserResponse((user.get()));
+            response = Optional.of(userResponse);
         }
-
-        return userResponse;
+        return response;
     }
 
-    public Optional<User> findUserByFirstname(String name) {
-        return userRepository.findByFirstName(name);
+    public List<User> findUserByFirstname(String name) {
+        return userRepository.findByFirstNameIgnoreCase(name);
     }
 }
