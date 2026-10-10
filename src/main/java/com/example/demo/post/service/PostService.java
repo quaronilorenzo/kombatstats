@@ -41,6 +41,6 @@ public class PostService {
     }
 
     public List<PostResponse> findAllPosts(){
-        return postMapper.postsToPostResponses(postRepository.findAll(Sort.by(Sort.Direction.DESC)));
+        return postMapper.postsToPostResponses(postRepository.findAll(Sort.by("createdAt").descending()));
     }
 }
