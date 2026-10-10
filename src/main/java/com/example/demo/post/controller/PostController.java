@@ -2,8 +2,11 @@ package com.example.demo.post.controller;
 
 import com.example.demo.post.dto.PostRequest;
 import com.example.demo.post.dto.PostResponse;
+import com.example.demo.post.entity.Post;
 import com.example.demo.post.service.PostService;
 import jakarta.validation.Valid;
+import org.hibernate.query.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,8 +27,8 @@ public class PostController {
         return ResponseEntity.ok(postService.findByAuthorIdOrderByCreatedAtDesc(authorId));
     }
     @GetMapping("/recentposts")
-    public List<PostResponse> findAll(){
-        return postService.findAllPosts();
+    public ResponseEntity<Page> findAll(Pageable pageable){
+        return ResponseEntity.ok((Page) postService.findAllPosts(pageable));
     }
 
     @PostMapping
