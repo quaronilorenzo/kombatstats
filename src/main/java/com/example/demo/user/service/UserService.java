@@ -1,10 +1,12 @@
 package com.example.demo.user.service;
 
+import com.example.demo.sport.entity.Sport;
 import com.example.demo.user.dto.UserRequest;
 import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.mapper.UserMapper;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.user.exceptions.UserNotFoundException;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.usersport.dto.UserSportResponse;
 import com.example.demo.usersport.dto.mapper.UserSportMapper;
@@ -16,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class UserService {
@@ -60,28 +61,48 @@ public class UserService {
         return userRepository.save(inputUser);
     }
 
-    public List<User> findAll() {
-        return userRepository.findAll();
+    public List<UserResponse> findAll() {
+        List<User> allUsers = userRepository.findAll();
+        List<UserResponse> allUsersResponse = new ArrayList<>();
+        allUsers.forEach(user -> {
+            UserResponse userResponse = userMapper.userToUserResponse(user, getSportsForUser(user));
+            allUsersResponse.add(userResponse);
+        });
+        return allUsersResponse;
     }
 
-    public Optional<UserResponse> findUserById(Long id) {
-        Optional<UserResponse> response = Optional.empty();
-        Optional<User> user = userRepository.findById(id);
-        if(user.isPresent()){
-            UserResponse userResponse = userMapper.userToUserResponse((user.get()));
-            response = Optional.of(userResponse);
-        }
-        return response;
+    public UserResponse findUserById(Long id) {
+        User user = getUserById(id);
+        return userMapper.userToUserResponse(user, getSportsForUser(user));
     }
 
+    public User getUserById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> UserNotFoundException.byId(id));
+    }
+
+    /**
+     * Finds every user with the given first name (case-insensitive).
+     *
+     * @throws UserNotFoundException when no user matches. An empty result is deliberately treated as an error
+     *                               instead of returning an empty list, because the caller asks for a user by
+     *                               name and a name nobody has is a missing resource (mapped to 404).
+     */
     public List<UserResponse> findUserByFirstname(String name) {
+        List<User> users = userRepository.findByFirstNameIgnoreCase(name);
+        if (users.isEmpty()) {
+            throw UserNotFoundException.byFirstName(name);
+        }
         List<UserResponse> response = new ArrayList<>();
-        List<User> users =  userRepository.findByFirstNameIgnoreCase(name);
-        if(!users.isEmpty()){
-            for(User user : users) {
-                response.add(userMapper.userToUserResponse(user));
-            }
+        for (User user : users) {
+            response.add(userMapper.userToUserResponse(user, getSportsForUser(user)));
         }
         return response;
+    }
+
+    private List<UserSportResponse> getSportsForUser(User user){
+        List<UserSport> sports = userSportService.findByUserId(user.getId());
+        return userSportMapper.userSportsToUserSportResponses(sports);
+
     }
 }

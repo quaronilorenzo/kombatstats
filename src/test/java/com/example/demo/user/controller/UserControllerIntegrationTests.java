@@ -357,17 +357,22 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.id").value(saved.getId()))
-                    .andExpect(jsonPath("$.email").value(saved.getEmail()));
+                    .andExpect(jsonPath("$.firstName").value(saved.getFirstName()))
+                    .andExpect(jsonPath("$.email").doesNotExist());
         }
 
         @Test
-        @DisplayName("404 - unknown id, empty body")
+        @DisplayName("404 - unknown id: problem detail naming the missing id")
         void shouldReturn404_whenIdDoesNotExist() throws Exception {
             mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid")
                             .param("id", "999999")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound())
-                    .andExpect(content().string(""));
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(404))
+                    .andExpect(jsonPath("$.title").value(UserErrors.userNotFoundMessage))
+                    .andExpect(jsonPath("$.detail").value("user with id 999999 not found"))
+                    .andExpect(jsonPath("$.type").value(UserErrors.userNotFoundUri));
         }
 
         @Test
@@ -400,8 +405,9 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
                             .param("name", saved.getFirstName())
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(saved.getId()))
-                    .andExpect(jsonPath("$.firstName").value(saved.getFirstName()));
+                    .andExpect(jsonPath("$", hasSize(1)))
+                    .andExpect(jsonPath("$[0].id").value(saved.getId()))
+                    .andExpect(jsonPath("$[0].firstName").value(saved.getFirstName()));
         }
 
         @Test
@@ -426,17 +432,21 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
                             .param("name", saved.getFirstName().toUpperCase())
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(saved.getId()));
+                    .andExpect(jsonPath("$[0].id").value(saved.getId()));
         }
 
         @Test
-        @DisplayName("404 - unknown name, empty body")
+        @DisplayName("404 - unknown name: problem detail naming the missing name")
         void shouldReturn404_whenNameDoesNotExist() throws Exception {
             mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname")
                             .param("name", "NoSuchName")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound())
-                    .andExpect(content().string(""));
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(404))
+                    .andExpect(jsonPath("$.title").value(UserErrors.userNotFoundMessage))
+                    .andExpect(jsonPath("$.detail").value("user with first name NoSuchName not found"))
+                    .andExpect(jsonPath("$.type").value(UserErrors.userNotFoundUri));
         }
 
         @Test

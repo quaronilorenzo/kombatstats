@@ -4,6 +4,9 @@ public interface UserErrors {
     String userDuplicatedUri = "https://localhost:8080/errors/duplicate-user";
     String userDuplicatedMessage = "Email already in use";
 
+    String userNotFoundUri = "http://localhost:8080/errors/user-not-found";
+    String userNotFoundMessage = "User not found";
+
     String constraintEmailFormat = "users_email_format";
     String constraintEmailUnique = "users_email_unique";
     String constraintBirthDatePast = "users_birth_date_past";

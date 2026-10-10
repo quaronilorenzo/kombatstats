@@ -2,17 +2,13 @@ package com.example.demo.user.controller;
 
 import com.example.demo.user.dto.UserRequest;
 import com.example.demo.user.dto.UserResponse;
-import com.example.demo.user.dto.mapper.UserMapper;
-import com.example.demo.user.entity.User;
 import com.example.demo.user.service.UserService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 
 @RequestMapping("users")
@@ -20,11 +16,9 @@ import java.util.List;
 public class UserController {
 
     private final UserService _userService;
-    private final UserMapper userMapper;
 
-    public UserController(UserService userService, UserMapper userMapper) {
+    public UserController(UserService userService) {
         this._userService = userService;
-        this.userMapper = userMapper;
     }
 
     @PostMapping
@@ -41,23 +35,26 @@ public class UserController {
 
     @GetMapping("/allusers")
     public List<UserResponse> getAllUsers() {
-        List<UserResponse> allUsersResponse = new ArrayList<>();
-        _userService.findAll().forEach(user -> allUsersResponse.add(userMapper.userToUserResponse(user)));
-        return allUsersResponse;
+        return _userService.findAll();
     }
 
     @GetMapping("/userbyid")
     public ResponseEntity<UserResponse> getUserById(@RequestParam Long id) {
-        return _userService.findUserById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        return ResponseEntity.ok(_userService.findUserById(id));
     }
 
+    /**
+     * Looks up users by first name.
+     * <p>
+     * An unknown first name answers 404, not {@code 200 []}: this endpoint identifies users by name, so a name
+     * that matches nobody is a missing resource. This differs from {@link #getAllUsers()}, where an empty list
+     * is a valid result. Clients must therefore treat 404 here as a normal "no match" case, not as a failure.
+     * <p>
+     * The 404 is raised by {@code UserService} ({@code UserNotFoundException}) and mapped to a
+     * {@code ProblemDetail} by {@code GlobalExceptionHandler}; this method always returns 200 on its own.
+     */
     @GetMapping("/userbyname")
     public ResponseEntity<List<UserResponse>> getUserByName(@RequestParam String name) {
-        List<UserResponse> users = _userService.findUserByFirstname(name);
-        if(users.isEmpty()){
-             return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(users);
-
+        return ResponseEntity.ok(_userService.findUserByFirstname(name));
     }
 }

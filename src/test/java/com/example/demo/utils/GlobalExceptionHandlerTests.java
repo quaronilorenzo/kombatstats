@@ -2,6 +2,7 @@ package com.example.demo.utils;
 
 import com.example.demo.user.costants.UserErrors;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.user.exceptions.UserNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
@@ -96,6 +97,21 @@ class GlobalExceptionHandlerTests {
                 () -> assertEquals(UserErrors.userDuplicatedMessage, problem.getTitle()),
                 () -> assertEquals("john@example.com is already used", problem.getDetail()),
                 () -> assertEquals(URI.create(UserErrors.userDuplicatedUri), problem.getType())
+        );
+    }
+
+    @Test
+    void handleUserNotFound_shouldReturnNotFoundWithLookupValueInDetail() {
+        UserNotFoundException ex = UserNotFoundException.byId(42L);
+
+        ResponseEntity<Object> response = globalExceptionHandler.handleUserNotFound(ex, webRequest);
+        ProblemDetail problem = (ProblemDetail) response.getBody();
+
+        assertAll(
+                () -> assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode()),
+                () -> assertEquals(UserErrors.userNotFoundMessage, problem.getTitle()),
+                () -> assertEquals("user with id 42 not found", problem.getDetail()),
+                () -> assertEquals(URI.create(UserErrors.userNotFoundUri), problem.getType())
         );
     }
 

@@ -2,5 +2,6 @@
   "firstName": "Lorenzo",
   "lastName": "Quaroni",
   "email": "future.birthdate@example.com",
+  "password": "Str0ng!Passw0rd",
   "birthDate": "2999-04-23"
 }

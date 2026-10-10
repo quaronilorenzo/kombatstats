@@ -1,8 +1,11 @@
 package com.example.demo.utils;
 
+import com.example.demo.post.costants.PostErrors;
+import com.example.demo.post.exceptions.DuplicatedPostException;
 import com.example.demo.sport.exceptions.SportNotFoundException;
 import com.example.demo.user.costants.UserErrors;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.user.exceptions.UserNotFoundException;
 import com.example.demo.usersport.costants.UserSportErrors;
 import com.example.demo.usersport.exceptions.DuplicatedUserSportException;
 import org.slf4j.Logger;
@@ -63,6 +66,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setType(URI.create(UserErrors.userDuplicatedUri));
         return super.handleExceptionInternal(duplicatedUserException, problem, new HttpHeaders(), HttpStatusCode.valueOf(problem.getStatus()), request);
     }
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<Object> handleUserNotFound(UserNotFoundException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle(UserErrors.userNotFoundMessage);
+        problem.setType(URI.create(UserErrors.userNotFoundUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
     @ExceptionHandler(SportNotFoundException.class)
     public ResponseEntity<Object> handleSportNotFound(SportNotFoundException ex, WebRequest request) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
@@ -81,6 +93,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ex.getMessage() + " is listed more than once");
         problem.setTitle(UserSportErrors.userSportDuplicatedMessage);
         problem.setType(URI.create(UserSportErrors.userSportDuplicatedUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
+    @ExceptionHandler(DuplicatedPostException.class)
+    public ResponseEntity<Object> handleDuplicatedPost(DuplicatedPostException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "a post with title " + ex.getMessage() + " already exists");
+        problem.setTitle(PostErrors.postDuplicatedMessage);
+        problem.setType(URI.create(PostErrors.postDuplicatedUri));
         return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
                 HttpStatusCode.valueOf(problem.getStatus()), request);
     }

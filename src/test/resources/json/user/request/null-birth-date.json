@@ -2,5 +2,6 @@
   "firstName": "Lorenzo",
   "lastName": "Quaroni",
   "email": "null.birthdate@example.com",
+  "password": "Str0ng!Passw0rd",
   "birthDate": null
 }

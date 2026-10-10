@@ -6,6 +6,7 @@ import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.mapper.UserMapper;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.user.exceptions.UserNotFoundException;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.usersport.dto.UserSportRequest;
 import com.example.demo.usersport.dto.UserSportResponse;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,6 +46,8 @@ public class UserServiceTest {
     private UserMapper userMapper;
     @Mock
     private UserSportMapper userSportMapper;
+    @Mock
+    private PasswordEncoder passwordEncoder;
     @InjectMocks
     private UserService userService;
 
@@ -52,6 +56,7 @@ public class UserServiceTest {
     private static final String EMAIL = "claudia.rategni@gmail.com";
     private static final LocalDate BIRTH_DATE = LocalDate.of(2007, 4, 13);
     private static final String PASSWORD = "Str0ngP4ssw0rd!";
+    private static final String HASHED_PASSWORD = "$2a$10$hashedPasswordForTests";
 
     private static User newUser() {
         return new User(BIRTH_DATE, EMAIL, LAST_NAME, FIRST_NAME);
@@ -118,6 +123,7 @@ public class UserServiceTest {
                     List.of(new UserSportResponse(10L, SportType.BJJ, new BigDecimal("4.5"), true));
             UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, sportResponses);
 
+            when(passwordEncoder.encode(PASSWORD)).thenReturn(HASHED_PASSWORD);
             when(userMapper.userRequestToUser(request)).thenReturn(mapped);
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
             when(userRepository.save(mapped)).thenReturn(saved);
@@ -128,6 +134,7 @@ public class UserServiceTest {
             UserResponse result = userService.register(request);
 
             assertThat(result).isEqualTo(expected);
+            assertThat(mapped.getHashPassword()).isEqualTo(HASHED_PASSWORD);
 
             verify(userSportService).createForUser(eq(saved), anyList());
         }
@@ -137,6 +144,7 @@ public class UserServiceTest {
         void shouldNotCreateSports_whenEmailIsAlreadyUsed() {
             UserRequest request = requestWithSports();
             User mapped = newUser();
+            when(passwordEncoder.encode(PASSWORD)).thenReturn(HASHED_PASSWORD);
             when(userMapper.userRequestToUser(request)).thenReturn(mapped);
             when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(persisted(mapped, 1L)));
 
@@ -155,12 +163,19 @@ public class UserServiceTest {
         @Test
         @DisplayName("returns every user the repository holds")
         void shouldReturnAllUsers_whenUsersExist() {
-            List<User> users = List.of(persisted(newUser(), 1L), persisted(newUser(), 2L));
-            when(userRepository.findAll()).thenReturn(users);
+            User first = persisted(newUser(), 1L);
+            User second = persisted(newUser(), 2L);
+            UserResponse firstResponse = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, List.of());
+            UserResponse secondResponse = new UserResponse(2L, FIRST_NAME, LAST_NAME, BIRTH_DATE, List.of());
+            when(userRepository.findAll()).thenReturn(List.of(first, second));
+            when(userSportService.findByUserId(1L)).thenReturn(List.of());
+            when(userSportService.findByUserId(2L)).thenReturn(List.of());
+            when(userSportMapper.userSportsToUserSportResponses(List.of())).thenReturn(List.of());
+            when(userMapper.userToUserResponse(first, List.of())).thenReturn(firstResponse);
+            when(userMapper.userToUserResponse(second, List.of())).thenReturn(secondResponse);
 
             assertThat(userService.findAll())
-                    .hasSize(2)
-                    .extracting(User::getId)
+                    .extracting(UserResponse::id)
                     .containsExactly(1L, 2L);
         }
 
@@ -181,17 +196,28 @@ public class UserServiceTest {
         @DisplayName("returns the user when the id exists")
         void shouldReturnUser_whenIdExists() {
             User saved = persisted(newUser(), 1L);
+            List<UserSport> sports = List.of(new UserSport());
+            List<UserSportResponse> sportResponses =
+                    List.of(new UserSportResponse(10L, SportType.BJJ, new BigDecimal("4.5"), true));
+            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, sportResponses);
             when(userRepository.findById(1L)).thenReturn(Optional.of(saved));
+            when(userSportService.findByUserId(1L)).thenReturn(sports);
+            when(userSportMapper.userSportsToUserSportResponses(sports)).thenReturn(sportResponses);
+            when(userMapper.userToUserResponse(saved, sportResponses)).thenReturn(expected);
 
-            assertThat(userService.findUserById(1L)).contains(saved);
+            assertThat(userService.findUserById(1L)).isEqualTo(expected);
         }
 
         @Test
-        @DisplayName("returns an empty Optional when the id is unknown")
-        void shouldReturnEmptyOptional_whenIdDoesNotExist() {
+        @DisplayName("throws UserNotFoundException carrying the id when it is unknown")
+        void shouldThrowUserNotFoundException_whenIdDoesNotExist() {
             when(userRepository.findById(404L)).thenReturn(Optional.empty());
 
-            assertThat(userService.findUserById(404L)).isEmpty();
+            assertThatThrownBy(() -> userService.findUserById(404L))
+                    .isInstanceOf(UserNotFoundException.class)
+                    .hasMessage("user with id 404 not found");
+
+            verify(userSportService, never()).findByUserId(any());
         }
     }
 
@@ -200,20 +226,28 @@ public class UserServiceTest {
     class FindUserByFirstname {
 
         @Test
-        @DisplayName("returns the user when the first name exists")
-        void shouldReturnUser_whenFirstNameExists() {
+        @DisplayName("returns every user matching the first name")
+        void shouldReturnUsers_whenFirstNameExists() {
             User saved = persisted(newUser(), 1L);
-            when(userRepository.findByFirstName(FIRST_NAME)).thenReturn(Optional.of(saved));
+            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, List.of());
+            when(userRepository.findByFirstNameIgnoreCase(FIRST_NAME)).thenReturn(List.of(saved));
+            when(userSportService.findByUserId(1L)).thenReturn(List.of());
+            when(userSportMapper.userSportsToUserSportResponses(List.of())).thenReturn(List.of());
+            when(userMapper.userToUserResponse(saved, List.of())).thenReturn(expected);
 
-            assertThat(userService.findUserByFirstname(FIRST_NAME)).contains(saved);
+            assertThat(userService.findUserByFirstname(FIRST_NAME)).containsExactly(expected);
         }
 
         @Test
-        @DisplayName("returns an empty Optional when the first name is unknown")
-        void shouldReturnEmptyOptional_whenFirstNameDoesNotExist() {
-            when(userRepository.findByFirstName("Nobody")).thenReturn(Optional.empty());
+        @DisplayName("throws UserNotFoundException carrying the name when it is unknown")
+        void shouldThrowUserNotFoundException_whenFirstNameDoesNotExist() {
+            when(userRepository.findByFirstNameIgnoreCase("Nobody")).thenReturn(List.of());
 
-            assertThat(userService.findUserByFirstname("Nobody")).isEmpty();
+            assertThatThrownBy(() -> userService.findUserByFirstname("Nobody"))
+                    .isInstanceOf(UserNotFoundException.class)
+                    .hasMessage("user with first name Nobody not found");
+
+            verify(userSportService, never()).findByUserId(any());
         }
     }
 }
