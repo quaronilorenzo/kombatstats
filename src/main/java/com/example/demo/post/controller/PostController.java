@@ -5,8 +5,13 @@ import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.entity.Post;
 import com.example.demo.post.service.PostService;
 import jakarta.validation.Valid;
-import org.hibernate.query.Page;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.PagedModel;
+import org.springframework.data.web.PagedResourcesAssembler;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,8 +32,9 @@ public class PostController {
         return ResponseEntity.ok(postService.findByAuthorIdOrderByCreatedAtDesc(authorId));
     }
     @GetMapping("/recentposts")
-    public ResponseEntity<Page> findAll(Pageable pageable){
-        return ResponseEntity.ok((Page) postService.findAllPosts(pageable));
+    public ResponseEntity<Page<PostResponse>> findAll(@PageableDefault(size = 20, sort = {"createdAt", "id"}, direction = Sort.Direction.DESC) Pageable pageable){
+        return postService.findAll(pageable);
+        //return ResponseEntity.ok((Page) postService.findAllPosts(pageable));
     }
 
     @PostMapping

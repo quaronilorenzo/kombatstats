@@ -9,6 +9,7 @@ import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.service.UserService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -43,8 +44,15 @@ public class PostService {
         return postMapper.postToPostResponse(postRepository.save(post));
     }
 
-    public Page<Post> findAllPosts(Pageable pageable){
-        return postRepository.findAll(pageable);
-        // return postMapper.postsToPostResponses(postRepository.findAll(Sort.by("createdAt").descending()));
+    public Page<PostResponse> findAll(Pageable pageable){
+        return postRepository.findAll(withStableSort(pageable))
+                .map(postMapper::postToPostResponse);
+    }
+
+    private Pageable withStableSort(Pageable pageable){
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pageable.getSort().and(Sort.by(Sort.Direction.DESC, "id")));
     }
 }
