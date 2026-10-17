@@ -5,6 +5,7 @@ import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.entity.Post;
 import com.example.demo.post.service.PostService;
 import jakarta.validation.Valid;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -31,14 +32,19 @@ public class PostController {
     public ResponseEntity<List<PostResponse>> findByAuthorIdOrderByCreatedAtDesc(@RequestParam Long authorId){
         return ResponseEntity.ok(postService.findByAuthorIdOrderByCreatedAtDesc(authorId));
     }
-    @GetMapping("/recentposts")
-    public ResponseEntity<Page<PostResponse>> findAll(@PageableDefault(size = 20, sort = {"createdAt", "id"}, direction = Sort.Direction.DESC) Pageable pageable){
-        return postService.findAll(pageable);
-        //return ResponseEntity.ok((Page) postService.findAllPosts(pageable));
-    }
-
     @PostMapping
     public ResponseEntity<PostResponse> addPost(@RequestBody @Valid PostRequest postRequest){
         return ResponseEntity.status(HttpStatus.CREATED).body(postService.addPost(postRequest));
+    }
+    @GetMapping("/recentposts")
+    public Page<PostResponse> findAll(@PageableDefault(size = 20, sort = {"createdAt", "id"}, direction = Sort.Direction.DESC) Pageable pageable){
+        return postService.findAll(pageable);
+        //return ResponseEntity.ok((Page) postService.findAllPosts(pageable));
+    }
+    @GetMapping("/recentpostsoffset")
+    public List<Post> findAllOffset(@RequestParam(required = false) Long lastId, @RequestParam(defaultValue = "10") int size){
+        List<Post> posts = postService.findNextPosts(lastId, size);
+        Long newLastId = posts.isEmpty() ? null : posts.getLast().getId();
+        return posts;
     }
 }

@@ -44,15 +44,21 @@ public class PostService {
         return postMapper.postToPostResponse(postRepository.save(post));
     }
 
+    public List<Post> findNextPosts(Long lastId, int size){
+        Pageable pageable = PageRequest.of(0, size);
+        return postRepository.findNextPage(lastId, pageable);
+    }
     public Page<PostResponse> findAll(Pageable pageable){
         return postRepository.findAll(withStableSort(pageable))
                 .map(postMapper::postToPostResponse);
     }
 
+
     private Pageable withStableSort(Pageable pageable){
         return PageRequest.of(
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
-                pageable.getSort().and(Sort.by(Sort.Direction.DESC, "id")));
+                pageable.getSort()
+                .and(Sort.by(Sort.Direction.DESC, "id")));
     }
 }
