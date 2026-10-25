@@ -1,5 +1,6 @@
 package com.example.demo.post.service;
 
+import com.example.demo.post.dto.PostCursor;
 import com.example.demo.post.dto.PostRequest;
 import com.example.demo.post.dto.PostResponse;
 import com.example.demo.post.dto.mapper.PostMapper;
@@ -8,13 +9,12 @@ import com.example.demo.post.exceptions.DuplicatedPostException;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.service.UserService;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import com.example.demo.utils.dto.CursorPage;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -44,10 +44,22 @@ public class PostService {
         return postMapper.postToPostResponse(postRepository.save(post));
     }
 
-    public List<Post> findNextPosts(Long lastId, int size){
+    public CursorPage<PostResponse, PostCursor> findNextPosts(Instant lastCreatedAt, Long lastId, int size){
         Pageable pageable = PageRequest.of(0, size);
-        return postRepository.findNextPage(lastId, pageable);
+        Slice<Post> posts = (lastCreatedAt == null || lastId == null)
+                ? postRepository.findFirstPage(pageable)
+                : postRepository.findNextPage(lastCreatedAt, lastId, pageable);
+
+        PostCursor nextCursor = null;
+        if (posts.hasNext()) {
+            Post last = posts.getContent().getLast();
+            nextCursor = new PostCursor(last.getCreatedAt(), last.getId());
+        }
+
+        List<PostResponse> items = postMapper.postsToPostResponses(posts.getContent());
+        return new CursorPage<>(items, nextCursor, posts.hasNext());
     }
+
     public Page<PostResponse> findAll(Pageable pageable){
         return postRepository.findAll(withStableSort(pageable))
                 .map(postMapper::postToPostResponse);
