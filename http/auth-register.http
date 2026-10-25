@@ -1,0 +1,473 @@
+### Richieste per POST /auth/register — IntelliJ HTTP Client (apri il file e premi ▶ accanto a ogni richiesta)
+# Ogni richiesta ha un blocco `> {% %}` che controlla lo status atteso.
+# {{$random.uuid}} genera un'email diversa a ogni esecuzione, così i 201 non diventano 409.
+
+@host = http://localhost:8080
+
+### 201 - utente valido senza sport
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "lorenzo.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {%
+    client.test("201 Created", () => client.assert(response.status === 201, "status " + response.status));
+    client.test("Location punta a /users/userbyid", () =>
+        client.assert(response.headers.valueOf("Location").includes("/users/userbyid?id=" + response.body.id),
+            "Location: " + response.headers.valueOf("Location")));
+    client.test("niente password nella risposta", () =>
+        client.assert(response.body.password === undefined && response.body.hashPassword === undefined));
+%}
+
+### 201 - utente valido con sport
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Mario",
+  "lastName": "Rossi",
+  "email": "mario.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1995-06-10",
+  "sports": [
+    { "sportType": "BJJ", "yearsPracticed": 4.5, "isCompeting": true },
+    { "sportType": "Boxing", "yearsPracticed": 1.0, "isCompeting": false }
+  ]
+}
+
+> {%
+    client.test("201 con 2 sport", () => {
+        client.assert(response.status === 201, "status " + response.status);
+        client.assert(response.body.sports.length === 2, "sports: " + JSON.stringify(response.body.sports));
+    });
+%}
+
+### 201 - lista sport vuota
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Anna",
+  "lastName": "Bianchi",
+  "email": "anna.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "2000-01-01",
+  "sports": []
+}
+
+> {% client.test("201", () => client.assert(response.status === 201, "status " + response.status)); %}
+
+### 201 - campo sconosciuto nel body: Jackson lo ignora
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Luca",
+  "lastName": "Verdi",
+  "email": "luca.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1990-03-15",
+  "role": "ADMIN"
+}
+
+> {% client.test("201, role ignorato", () => client.assert(response.status === 201, "status " + response.status)); %}
+
+### --- Email duplicata: lancia le due richieste in ordine ---
+
+### 201 - primo utente con email fissa (il 2° lancio di questa dà già 409)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Duplicato",
+  "lastName": "Test",
+  "email": "duplicato@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+### 409 - stessa email
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Duplicato",
+  "lastName": "DiNuovo",
+  "email": "duplicato@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("409 Conflict", () => client.assert(response.status === 409, "status " + response.status)); %}
+
+### 409 atteso - stessa email in MAIUSCOLO
+# Oggi risponde 201: findByEmail e il vincolo users_email_unique sono case-sensitive.
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Duplicato",
+  "lastName": "Maiuscolo",
+  "email": "DUPLICATO@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("409 (email case-insensitive)", () => client.assert(response.status === 409, "status " + response.status)); %}
+
+### --- Validazione campi: 400 ---
+
+### 400 - firstName vuoto
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "",
+  "lastName": "Quaroni",
+  "email": "blank.first.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - lastName mancante
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "email": "no.last.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - email vuota
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - email senza dominio
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "lorenzo@example",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - birthDate nel futuro
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "future.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "2999-01-01"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - birthDate mancante
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "no.birth.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - birthDate in formato non ISO (dd/MM/yyyy)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "bad.date.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "23/04/1999"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### --- Password (pattern: 12-72 caratteri, minuscola, maiuscola, cifra, speciale, niente spazi) ---
+
+### 400 - password mancante
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "no.pwd.{{$random.uuid}}@example.com",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - password troppo corta (11 caratteri)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "short.pwd.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Pass",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 201 - password lunga esattamente 12 caratteri (limite inferiore)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "min.pwd.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("201", () => client.assert(response.status === 201, "status " + response.status)); %}
+
+### 201 - password lunga esattamente 72 caratteri (limite BCrypt)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "max.pwd.{{$random.uuid}}@example.com",
+  "password": "Aa1!aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("201", () => client.assert(response.status === 201, "status " + response.status)); %}
+
+### 400 - password di 73 caratteri (oltre il limite BCrypt)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "long.pwd.{{$random.uuid}}@example.com",
+  "password": "Aa1!aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - password senza carattere speciale
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "no.special.{{$random.uuid}}@example.com",
+  "password": "Str0ngPassw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - password senza maiuscole
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "no.upper.{{$random.uuid}}@example.com",
+  "password": "str0ng!passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - password senza cifre
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "no.digit.{{$random.uuid}}@example.com",
+  "password": "Strong!Password",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - password con uno spazio
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "space.pwd.{{$random.uuid}}@example.com",
+  "password": "Str0ng! Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### --- Sport annidati ---
+
+### 400 - sportType che non esiste nell'enum SportType
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "bad.sport.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23",
+  "sports": [ { "sportType": "Judo", "yearsPracticed": 2, "isCompeting": false } ]
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - sportType mancante
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "null.sport.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23",
+  "sports": [ { "yearsPracticed": 2, "isCompeting": false } ]
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 409 - stesso sport due volte
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "dup.sport.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23",
+  "sports": [
+    { "sportType": "MMA", "yearsPracticed": 2, "isCompeting": false },
+    { "sportType": "MMA", "yearsPracticed": 3, "isCompeting": true }
+  ]
+}
+
+> {% client.test("409", () => client.assert(response.status === 409, "status " + response.status)); %}
+
+### 400 - yearsPracticed negativo
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "neg.years.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23",
+  "sports": [ { "sportType": "Wrestling", "yearsPracticed": -1, "isCompeting": false } ]
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - yearsPracticed con due decimali (@Digits fraction = 1)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "two.dec.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23",
+  "sports": [ { "sportType": "Kickboxing", "yearsPracticed": 2.25, "isCompeting": false } ]
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### --- Richieste malformate ---
+
+### 400 - JSON non valido (virgola finale)
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+}
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 400 - body vuoto
+POST {{host}}/auth/register
+Content-Type: application/json
+
+> {% client.test("400", () => client.assert(response.status === 400, "status " + response.status)); %}
+
+### 415 - Content-Type sbagliato
+POST {{host}}/auth/register
+Content-Type: text/plain
+
+firstName=Lorenzo
+
+> {% client.test("415", () => client.assert(response.status === 415, "status " + response.status)); %}
+
+### 405 - metodo sbagliato sullo stesso path
+GET {{host}}/auth/register
+
+> {% client.test("405", () => client.assert(response.status === 405, "status " + response.status)); %}
+
+### 404 - il vecchio POST /users non esiste più
+POST {{host}}/users
+Content-Type: application/json
+
+{
+  "firstName": "Lorenzo",
+  "lastName": "Quaroni",
+  "email": "old.endpoint.{{$random.uuid}}@example.com",
+  "password": "Str0ng!Passw0rd",
+  "birthDate": "1999-04-23"
+}
+
+> {% client.test("404", () => client.assert(response.status === 404, "status " + response.status)); %}

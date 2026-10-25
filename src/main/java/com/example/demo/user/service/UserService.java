@@ -46,6 +46,7 @@ public class UserService {
         String hashPassword = passwordEncoder.encode(request.password());
         User user = userMapper.userRequestToUser(request);
         user.setHashPassword(hashPassword);
+        user.setEmail(request.email().trim().toLowerCase());
         User savedUser = addUser(user);
         List<UserSport> savedSports = userSportService.createForUser(savedUser, request.sports());
         List<UserSportResponse> sportResponses =

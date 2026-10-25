@@ -21,18 +21,6 @@ public class UserController {
         this._userService = userService;
     }
 
-    @PostMapping
-    public ResponseEntity<UserResponse> addUser(@RequestBody @Valid UserRequest request) {
-        UserResponse userResponse = _userService.register(request);
-
-        URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
-                .path("/userbyid")
-                .queryParam("id", userResponse.id())
-                .build()
-                .toUri();
-        return ResponseEntity.created(location).body(userResponse);
-    }
-
     @GetMapping("/allusers")
     public List<UserResponse> getAllUsers() {
         return _userService.findAll();
