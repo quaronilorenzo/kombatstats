@@ -27,20 +27,20 @@ public class JwtSecurity {
         this.jwtKey = Keys.hmacShaKeyFor(decodedBytes);
     }
 
-    String generateToken(User user){
+    public String generateToken(User user){
         return Jwts.builder().subject(Long.toString(user.getId()))
                 .issuedAt(Date.from(Instant.now()))
-                .expiration(Date.from(Instant.now().plusSeconds(TimeUnit.SECONDS.toSeconds(exparationTime))))
+                .expiration(Date.from(Instant.now().plusSeconds(TimeUnit.MINUTES.toSeconds(exparationTime))))
                 .signWith(jwtKey)
                 .compact();
     }
 
-    Long extractUserId(String token){
+    public Long extractUserId(String token){
         return Long.valueOf(Jwts.parser()
             .verifyWith(jwtKey)
             .build()
             .parseSignedClaims(token)
             .getPayload()
-            .toString());
+            .getSubject());
     }
 }
