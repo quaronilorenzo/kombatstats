@@ -4,16 +4,16 @@ description: >-
   Guida un flusso di ricerca e apprendimento in fasi per risolvere bug, errori o
   problemi tecnici, o per scegliere come implementare una feature — per sviluppatori
   junior che vogliono imparare gli strumenti giusti (API, metodi, classi, annotazioni,
-  best practice) invece di codice da incollare. Attiva questa
-  skill quando l'utente descrive un bug, un errore o una feature e chiede come
-  affrontarlo, quando ci sono più approcci da confrontare, o quando riprende una
-  feature già documentata in .claude/features — non per domande di sintassi con
-  risposta univoca. Fase 1: se è un bug individua la causa, valuta con imparzialità
-  l'idea o le supposizioni dell'utente, presenta opzioni A, B, C senza scegliere al
-  posto suo. Fase 2: alla scelta di una lettera
-  salva architettura, classi e decisioni in un README per feature in .claude e spiega
-  la soluzione step-by-step, senza codice. Fase 3, solo su richiesta esplicita: rilegge
-  il README (può contenere note dello sviluppatore) e scrive il codice commentato.
+  best practice) invece di codice da incollare. Attiva questa skill quando l'utente
+  descrive un bug, un errore o una feature e chiede come affrontarlo, quando ci sono
+  più approcci da confrontare, o riprende una feature già in
+  .claude/features — non per domande di sintassi con risposta univoca. Fase 1: se è un
+  bug individua la causa, valuta con imparzialità l'idea dell'utente, presenta opzioni
+  A, B, C senza scegliere per lui. Fase 2: alla scelta di una lettera salva un
+  README per feature in .claude e spiega la soluzione step-by-step,
+  senza codice. Fase 3, solo su richiesta esplicita: rilegge il README, scrive il
+  codice e vi aggiunge il workflow a passi (perché di ogni scelta, link a classi e
+  righe) e cosa succede a deploy e avvio, così non serve aprire il codice.
 compatibility: >-
   Funziona meglio con accesso alla ricerca web (best practice, versioni di librerie e
   raccomandazioni di sicurezza aggiornate) e con accesso in scrittura al progetto, per
@@ -62,11 +62,15 @@ richiamata di nuovo.
 Il flusso ha anche una memoria su file: scelta l'opzione, la Fase 2 salva le decisioni
 in un README per feature dentro `.claude/`. Serve a te, per non perdere pezzi nelle
 conversazioni lunghe (rileggerlo costa molto meno che ricostruire il contesto), e allo
-sviluppatore, che ci può lasciare note per ciò che si era dimenticato di dirti.
+sviluppatore, che ci può lasciare note per ciò che si era dimenticato di dirti. Se poi
+scrivi il codice (Fase 3), il README diventa anche il workflow di quel codice: una
+sequenza di passi che spiega cosa succede e perché, con i link alle righe che li
+realizzano e cosa aspettarsi a deploy e avvio. Lo sviluppatore apre il codice solo per
+un bug o un errore, e arriva dritto al punto giusto.
 
 Se lo sviluppatore scrive in una lingua diversa dall'italiano, rispondi nella sua
 lingua (README compreso) e adatta di conseguenza le etichette dei formati qui sotto
-(es. "Cosa fa" → "What it does"); nomi di classi, metodi e librerie restano quelli
+(es. "Cosa succede" → "What happens"); nomi di classi, metodi e librerie restano quelli
 reali, non tradotti.
 
 ## Fase 1 — Ricerca e opzioni
@@ -196,7 +200,7 @@ codice e senza sbilanciarti — invece di passare già alla guida step-by-step.
    procedere: la neutralità sui trade-off non significa tacere un'informazione
    rilevante appena emersa.
 2. **Salva il README della feature** (vedi "Il README della feature" sotto): idea
-   architetturale, regole di clean code, classi, scelte significative e uno spazio per
+   architetturale, il workflow previsto in una riga, le classi previste e uno spazio per
    le note dello sviluppatore. Fallo prima di spiegare gli step, così spiegazione e
    file raccontano la stessa soluzione.
 3. **Spiega passo dopo passo cosa fare**, in ordine di implementazione: dependency da
@@ -240,25 +244,75 @@ qualcosa che non mi hai detto, scrivilo nella sezione *Note dello sviluppatore*.
 
 ### Il README della feature
 
-Un file breve che fissa le decisioni prese. A te serve perché nelle conversazioni lunghe
-i dettagli sfuggono, e rileggere poche centinaia di parole costa molto meno che
-ricostruire il contesto o richiedere allo sviluppatore cose già dette. A lui serve
-perché ha uno spazio suo per le note.
+Un file che fissa le decisioni prese e, dopo la Fase 3, spiega come funziona la
+feature a chi non legge il codice. A te serve perché nelle conversazioni lunghe i
+dettagli sfuggono, e rileggere poche centinaia di parole costa molto meno che
+ricostruire il contesto o richiedere allo sviluppatore cose già dette. A lui serve per
+tre cose: ha uno spazio suo per le note; dopo il codice ha un workflow che racconta
+cosa succede passo per passo e perché; e da ogni passo può saltare alle righe di
+codice che lo realizzano, solo quando gli serve.
+
+Si scrive in due tempi. In Fase 2: problema, opzione scelta, idea architetturale, il
+workflow previsto (solo la riga con i passi) e le classi previste. In Fase 3, dopo il
+codice: i passi del workflow spiegati e collegati alle righe, "Avvio e deploy" e "Se
+qualcosa non va". Queste sezioni non si creano vuote prima del codice. Non esistono
+sezioni sulle regole di clean code o sulle scelte significative: il perché di ogni
+scelta sta dentro il passo a cui appartiene.
 
 - **Dove:** `.claude/features/<nome-feature-in-kebab-case>/README.md`, nella radice
   del progetto; crea la cartella se manca. Se non puoi scrivere file (per esempio sei
   in una chat senza accesso al progetto), scrivi il contenuto del README nella risposta
   e chiedi di salvarlo in quel percorso: il resto del flusso non cambia.
-- **Breve e senza codice.** Resta sulle 400-600 parole (contano le parole, non le
-  righe): è una memoria, non una documentazione completa. Se cresce, condensa. Niente
-  implementazioni: solo idee, nomi e responsabilità.
+- **In parole di chi non legge il codice, e senza codice.** Dopo la Fase 2 resta sulle
+  300-500 parole, dopo la Fase 3 non oltre le 1200 (contano le parole, non le righe).
+  Niente implementazioni: idee, comportamenti, nomi e responsabilità. Nel testo dei
+  passi scrivi cosa succede ("salva la richiesta sul database"), non come si chiama il
+  metodo che lo fa: i nomi di classi e metodi stanno nelle righe "Codice:" e
+  nell'elenco delle classi. Spiega un termine tecnico la prima volta che lo usi.
 - **Una feature, un README.** Se esiste già per questa feature, aggiornalo invece di
-  crearne un altro.
+  crearne un altro. Se è scritto con il formato di una versione precedente di questa
+  skill (con le sezioni "Clean code" o "Scelte significative"), portalo al formato
+  qui sotto quando lo aggiorni: togli quelle sezioni dopo aver spostato nei passi del
+  workflow il perché che contengono, e lascia le note dello sviluppatore identiche.
 - **Le note sono sue.** Non riscrivere, riassumere o cancellare la sezione "Note dello
   sviluppatore": quando aggiorni il file, conserva quel testo identico.
-- **Aggiornalo quando conta:** una scelta tra varianti, una classe rinominata, un
-  vincolo emerso. Una riga in "Scelte significative" (cosa è stato scelto, perché, cosa
-  è stato scartato). Non annotare ciò che il codice dirà già da solo.
+- **Aggiornalo quando conta:** un passo che cambia, una classe rinominata, un vincolo
+  emerso. Quando una scelta cambia, correggi il passo che la spiega. Cambia solo ciò
+  che la modifica tocca (il passo, i link che si spostano, cosa è stato verificato) e
+  lascia il resto com'è: lo sviluppatore può aver ritoccato il file a mano. Non annotare
+  ciò che il codice dirà già da solo.
+- **Il workflow (Fase 3, dopo il codice).** Chi chiede il codice ha fretta e non lo
+  leggerà tutto: il workflow gli permette di capire e di fidarsi senza aprirlo, e di
+  aprirlo solo nel punto giusto. Scrivilo rileggendo il codice che hai appena scritto,
+  non copiando il piano della Fase 2, che può essere cambiato strada facendo.
+  - *La riga dei passi.* In cima, la catena dall'inizio alla fine, per esempio
+    "1. Riceve la richiesta → 2. Crea l'ordine → 3. Risponde → 4. Scrive il log".
+    Includi ciò che avviene prima dell'azione principale (controlli, permessi, lettura
+    della configurazione) e dopo (risposta, log, notifiche, pulizia) solo se il codice
+    lo fa davvero: non inventare passi per riempire. Di solito 4-8 passi, ciascuno un
+    momento riconoscibile, non un passo per metodo.
+  - *Ogni passo, spiegato.* Stessa numerazione della riga, sempre lo stesso formato
+    (vedi template): cosa succede, perché è fatto così e i link al codice. Il "perché"
+    è la ragione della scelta in quel punto; nomina l'alternativa scartata solo se
+    aiuta a capirla.
+  - *I link a classi e righe.* Chiudono ogni passo e portano alle righe che lo
+    realizzano, così chi vuole la vista del codice (soprattutto se è lunga) ci arriva
+    senza cercare. Il percorso è relativo al README: da `.claude/features/<feature>/`
+    si risale alla radice con `../../../`, poi il percorso del file e `#L42-L58`. Un
+    link per ogni classe o metodo che il passo usa, con le righe di quel metodo o
+    blocco; per la configurazione, le righe del file di property. **Prendi i numeri di
+    riga dai file finiti** (rileggili o cercali con grep -n dopo l'ultima modifica),
+    mai a memoria o a stima: un link che punta alla riga sbagliata è peggio di nessun
+    link. Se non puoi verificarli (non hai accesso ai file, o il codice è solo nella
+    risposta), indica classe e metodo senza righe.
+  - *Le righe invecchiano.* Ogni volta che modifichi il codice di questa feature (una
+    correzione, una richiesta nuova), ricontrolla i link del README e aggiornali.
+    Sotto il titolo "Workflow" lascia la nota che, se un numero non torna, si cerca per
+    nome.
+  - *Avvio e deploy* e *Se qualcosa non va* completano il quadro (vedi template).
+    Chi non aprirà il codice non può accorgersi da solo di ciò che hai assunto o non
+    hai potuto verificare: se non hai eseguito nulla, scrivilo chiaro; se hai lanciato
+    build o test, riporta l'esito vero.
 - **Rileggilo dal file, non dalla memoria della conversazione**, perché lo sviluppatore
   può averlo modificato: prima di scrivere codice (Fase 3), quando la feature viene
   ripresa dopo una pausa o in una nuova conversazione, quando non sei sicuro di una
@@ -274,18 +328,40 @@ perché ha uno spazio suo per le note.
 **Opzione scelta:** [lettera] — [nome]. Stack: [linguaggio/framework/versione].
 
 ## Idea architetturale
-Come si compone la soluzione: i pezzi, come comunicano, dove si inseriscono
-nell'architettura esistente. 3-8 righe.
+Cosa si costruisce e con quale approccio, in parole semplici. 2-5 righe.
 
-## Clean code
-Le regole concrete per questa feature (dove sta la logica e dove no, naming, gestione
-degli errori, cosa evitare), non principi generici.
+## Workflow
+1. [Passo] → 2. [Passo] → 3. [Passo] → 4. [Passo]
+
+(In Fase 2 resta solo questa riga, il flusso previsto. In Fase 3 sotto si aggiunge:)
+_Le righe indicate sono quelle del codice all'ultima modifica; se un numero non torna,
+cerca il metodo per nome._
+
+### 1. [Passo, come azione: "Riceve la richiesta"]
+**Cosa succede:** 1-3 frasi, in parole di chi non legge il codice.
+**Perché così:** 1-2 frasi sulla ragione della scelta in questo punto.
+**Codice:** [`Classe.metodo`](../../../src/main/java/com/acme/File.java#L42-L58) · [`Altra.metodo`](../../../src/main/java/com/acme/Altro.java#L10-L25)
+
+### 2. [Passo]
+[stesso formato]
 
 ## Classi e componenti
-- `NomeClasse` — responsabilità in una riga (livello/package)
+- [`NomeClasse`](../../../src/main/java/com/acme/NomeClasse.java) — responsabilità in una riga (livello/package)
 
-## Scelte significative
-- [scelta] — perché, e l'alternativa scartata
+## Avvio e deploy  (si aggiunge in Fase 3)
+- **Prima di avviare:** dependency aggiunte; property/variabili d'ambiente (nome, valore
+  atteso); servizi, database, permessi necessari.
+- **All'avvio parte da solo:** bean, job, scheduler, migrazioni; tabelle, file o cartelle
+  creati.
+- **In produzione:** dati scritti o modificati, carico su DB/memoria/disco, comportamento
+  con più istanze o dopo un riavvio.
+- **Verificato / non verificato:** cosa è stato compilato o eseguito e con quale esito,
+  cosa no.
+- **Assunzioni da adattare:** ciò che hai ipotizzato (nomi di tabelle e colonne, formati,
+  valori di default).
+
+## Se qualcosa non va  (si aggiunge in Fase 3)
+- [sintomo] → [passo del workflow e classe da aprire, log o tabella da guardare]
 
 ## Note dello sviluppatore
 > Spazio tuo: scrivi qui ciò che ti eri dimenticato di dire o che cambi in corsa.
@@ -308,24 +384,36 @@ Fase 2 e continua a indicare solo gli strumenti, non il codice.
    differenza della Fase 2, qui scrivere codice è esattamente ciò che ti è stato
    chiesto — non è una concessione da giustificare.
 3. **Scrivi il codice completo e funzionante** per l'opzione già scelta, rispettando
-   classi, regole di clean code e note del README. Se lo sviluppatore salta
+   classi e note del README. Se lo sviluppatore salta
    direttamente qui senza passare dalla Fase 2, scegli tu l'opzione più sensata dato il
    contesto disponibile e dillo esplicitamente in una riga, così sa su cosa si basa il
    codice. Usa gli stessi strumenti — classi, metodi, API, annotazioni — già indicati
    in Fase 2, se presenti, così il codice resta coerente con quanto già spiegato.
+   **Dove va il codice:** se hai accesso al progetto, scrivilo direttamente nei file e
+   non incollarlo nella risposta — duplicarlo la allunga e non serve a chi aprirà i
+   file solo per un bug. Se non hai accesso al progetto, il codice va nella risposta,
+   un blocco per file con il percorso come titolo.
 4. **Commenta i punti chiave nel codice**, in particolare dove entra in gioco uno
    strumento rilevante (una API specifica, un pattern di sicurezza, una scelta di
-   ottimizzazione): il codice scritto per lui deve restare, per quanto possibile,
-   leggibile e un minimo formativo — non solo funzionante e basta.
-5. **Segnala comunque gli errori comuni e come verificare che funzioni**, come in
-   Fase 2: scrivere il codice al posto suo non significa smettere di indicargli dove
-   potrebbe rompersi o cosa osservare per essere sicuro che funzioni.
-6. **Allinea il README** se il codice ha cambiato qualcosa rispetto a quanto scritto
-   (un nome di classe, una scelta): una riga, senza toccare le note dello sviluppatore.
-7. **Una sola riga finale, non ripetuta ogni volta**, può invitarlo a rileggere il
-   codice per capirlo prima di usarlo — ma non insistere né ripeterlo a ogni cambio
-   successivo se lo sviluppatore ha già detto di avere fretta: diventerebbe rumore
-   invece che un aiuto.
+   ottimizzazione): i commenti servono a chi aprirà il codice per un bug, e gli
+   mostrano subito dove sta ogni cosa.
+5. **Verifica ciò che puoi.** Se hai modo di compilare o lanciare i test, fallo e
+   riporta l'esito vero. Se non puoi, dillo: un codice che nessuno ha eseguito non va
+   presentato come funzionante, perché lo sviluppatore non lo leggerà per accorgersene.
+6. **Scrivi il workflow nel README, per ultimo.** Quando il codice è finito e verificato
+   per quanto puoi, rileggi i file e trasforma la riga dei passi in workflow: spiega
+   ogni passo (cosa succede, perché è fatto così), chiudilo con i link a classi e righe
+   — numeri presi dai file finiti, non a memoria — e aggiungi "Avvio e deploy" e "Se
+   qualcosa non va". Aggiorna "Classi e componenti" se il codice ha cambiato il piano.
+   Gli errori comuni e come verificare che funzioni vanno lì, non in una lunga coda alla
+   risposta. Se dopo modifichi ancora il codice, ricontrolla i link. Non toccare le note
+   dello sviluppatore.
+7. **Chiudi la risposta in breve:** i file creati o modificati, il workflow in una riga
+   (la stessa riga dei passi del README), le due o tre cose indispensabili prima di
+   avviare (property da impostare, database o servizi necessari, assunzioni da
+   adattare) e il rimando al README per il resto. Non invitarlo a rileggere il codice
+   per capirlo: il README esiste proprio per evitarglielo, e lo aprirà se incontra un
+   bug o un errore.
 
 ### Pressione sulla Regola 1 (la scelta resta sua)
 

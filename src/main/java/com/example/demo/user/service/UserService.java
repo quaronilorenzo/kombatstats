@@ -40,7 +40,6 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-
     @Transactional
     public UserResponse register(UserRequest request) {
         String hashPassword = passwordEncoder.encode(request.password());
@@ -51,7 +50,6 @@ public class UserService {
         List<UserSport> savedSports = userSportService.createForUser(savedUser, request.sports());
         List<UserSportResponse> sportResponses =
                 userSportMapper.userSportsToUserSportResponses(savedSports);
-
         return userMapper.userToUserResponse(savedUser, sportResponses);
     }
 
