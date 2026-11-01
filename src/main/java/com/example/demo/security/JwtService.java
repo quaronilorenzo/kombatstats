@@ -13,11 +13,11 @@ import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 @Service
-public class JwtSecurity {
+public class JwtService {
     private final int exparationTime;
     private final SecretKey jwtKey;
 
-    public JwtSecurity(
+    public JwtService(
             @Value("${app.jwt.expiration-minutes}")
             int exparationTime,
             @Value("${app.jwt.secret}")

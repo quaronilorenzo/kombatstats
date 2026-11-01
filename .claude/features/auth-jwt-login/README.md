@@ -32,7 +32,7 @@ Da creare:
 - `LoginRequest`, `LoginResponse` — dati in ingresso e in uscita del login (`user.dto`)
 - `InvalidCredentialsException` — credenziali errate (`user.exceptions`)
 - `LoginService` — già presente ma vuoto: verifica le credenziali e chiede il token (`user.service`)
-- `JwtSecurity` — genera e legge i token (`security`, package nuovo)
+- `JwtService` — genera e legge i token (`security`, package nuovo)
 - `JwtAuthenticationFilter` — valida il token a ogni richiesta (`security`)
 
 Da modificare:
