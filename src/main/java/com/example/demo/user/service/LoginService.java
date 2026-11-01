@@ -28,7 +28,7 @@ public class LoginService {
     }
 
     public LoginResponse login(LoginRequest loginRequest) throws CredentialException {
-        Optional<User> user = userRepository.findByEmail(loginRequest.email());
+        Optional<User> user = userRepository.findByEmail(loginRequest.email().toLowerCase().trim());
         // Timing attack prevention
         String userPassword = user
                 .isPresent() ? user.get().getHashPassword() : AuthCostants.FAKE_PASSWORD;

@@ -35,6 +35,7 @@ public class JwtService {
                 .compact();
     }
 
+    // Verify jwt firm and return userId
     public Long extractUserId(String token){
         return Long.valueOf(Jwts.parser()
             .verifyWith(jwtKey)
