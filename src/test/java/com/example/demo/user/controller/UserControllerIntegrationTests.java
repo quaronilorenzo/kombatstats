@@ -42,7 +42,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
 
     private ResultActions postUser(String jsonClasspath) throws Exception {
         return mockMvc.perform(MockMvcRequestBuilders
-                .post("/users")
+                .post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(readJson(jsonClasspath))
                 .accept(MediaType.APPLICATION_JSON));
@@ -52,6 +52,11 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         postUser(jsonClasspath).andExpect(status().isCreated());
         String email = JsonPath.read(readJson(jsonClasspath), "$.email");
         return userRepository.findByEmail(email).orElseThrow();
+    }
+
+    /** A user to authenticate as, for tests that only need "someone logged in". */
+    private long caller() {
+        return insertUser("caller@example.com");
     }
 
     private long countUserSports() {
@@ -67,7 +72,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
     }
 
     @Nested
-    @DisplayName("POST /users")
+    @DisplayName("POST /auth/register")
     class AddUser {
 
         @Test
@@ -80,7 +85,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
             String expectedBirthDate = JsonPath.read(json, "$.birthDate");
 
             RequestBuilder request = MockMvcRequestBuilders
-                    .post("/users")
+                    .post("/auth/register")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(json)
                     .accept(MediaType.APPLICATION_JSON);
@@ -211,7 +216,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         @DisplayName("415 - Content-Type other than application/json")
         void shouldReturn415_whenContentTypeIsNotJson() throws Exception {
             mockMvc.perform(MockMvcRequestBuilders
-                            .post("/users")
+                            .post("/auth/register")
                             .contentType(MediaType.TEXT_PLAIN)
                             .content(readJson(JsonPathMock.VALID_USER_REQUEST_JSON_PATH)))
                     .andExpect(status().isUnsupportedMediaType());
@@ -234,15 +239,15 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         }
 
         @Test
-        @DisplayName("405 - method not allowed on /users")
+        @DisplayName("405 - method not allowed on /auth/register")
         void shouldReturn405_whenMethodIsNotAllowed() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.delete("/users"))
+            mockMvc.perform(MockMvcRequestBuilders.get("/auth/register"))
                     .andExpect(status().isMethodNotAllowed());
         }
     }
 
     @Nested
-    @DisplayName("POST /users with nested sports")
+    @DisplayName("POST /auth/register with nested sports")
     class AddUserWithSports {
 
         @Test
@@ -319,22 +324,26 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
     class GetAllUsers {
 
         @Test
-        @DisplayName("200 - empty list when there are no users")
-        void shouldReturn200WithEmptyList_whenNoUsersExist() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/allusers").accept(MediaType.APPLICATION_JSON))
+        @DisplayName("200 - only the caller exists: list of one")
+        void shouldReturn200WithOnlyTheCaller_whenNoOtherUsersExist() throws Exception {
+            // With authentication required the list can no longer be empty: the caller is always there.
+            User caller = createUserViaApi(JsonPathMock.VALID_USER_REQUEST_JSON_PATH);
+
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/allusers").with(asUser(caller.getId())).accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$").isArray())
-                    .andExpect(jsonPath("$", hasSize(0)));
+                    .andExpect(jsonPath("$", hasSize(1)))
+                    .andExpect(jsonPath("$[0].id").value(caller.getId()));
         }
 
         @Test
         @DisplayName("200 - returns every created user")
         void shouldReturn200WithAllUsers_whenUsersExist() throws Exception {
-            createUserViaApi(JsonPathMock.VALID_USER_REQUEST_JSON_PATH);
+            User caller = createUserViaApi(JsonPathMock.VALID_USER_REQUEST_JSON_PATH);
             createUserViaApi(JsonPathMock.SECOND_VALID_USER_REQUEST_JSON_PATH);
 
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/allusers").accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/allusers").with(asUser(caller.getId())).accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)))
                     .andExpect(jsonPath("$[*].firstName", containsInAnyOrder("Lorenzo", "Marco")))
@@ -351,7 +360,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         void shouldReturn200_whenIdExists() throws Exception {
             User saved = createUserViaApi(JsonPathMock.VALID_USER_REQUEST_JSON_PATH);
 
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid")
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid").with(asUser(saved.getId()))
                             .param("id", String.valueOf(saved.getId()))
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
@@ -364,7 +373,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         @Test
         @DisplayName("404 - unknown id: problem detail naming the missing id")
         void shouldReturn404_whenIdDoesNotExist() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid")
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid").with(asUser(caller()))
                             .param("id", "999999")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound())
@@ -378,14 +387,14 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         @Test
         @DisplayName("400 - missing id parameter")
         void shouldReturn400_whenIdParamIsMissing() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid").accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid").with(asUser(caller())).accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
         @DisplayName("400 - non numeric id")
         void shouldReturn400_whenIdIsNotANumber() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid")
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyid").with(asUser(caller()))
                             .param("id", "abc")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest());
@@ -401,7 +410,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         void shouldReturn200_whenNameExists() throws Exception {
             User saved = createUserViaApi(JsonPathMock.VALID_USER_REQUEST_JSON_PATH);
 
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname")
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname").with(asUser(saved.getId()))
                             .param("name", saved.getFirstName())
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
@@ -428,7 +437,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         void shouldReturn200_whenNameDiffersOnlyByCase() throws Exception {
             User saved = createUserViaApi(JsonPathMock.VALID_USER_REQUEST_JSON_PATH);
 
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname")
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname").with(asUser(saved.getId()))
                             .param("name", saved.getFirstName().toUpperCase())
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
@@ -438,7 +447,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         @Test
         @DisplayName("404 - unknown name: problem detail naming the missing name")
         void shouldReturn404_whenNameDoesNotExist() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname")
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname").with(asUser(caller()))
                             .param("name", "NoSuchName")
                             .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound())
@@ -452,7 +461,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
         @Test
         @DisplayName("400 - missing name parameter")
         void shouldReturn400_whenNameParamIsMissing() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname").accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/userbyname").with(asUser(caller())).accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest());
         }
     }
@@ -460,7 +469,7 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
     @Test
     @DisplayName("404 - unknown path under /users")
     void shouldReturn404_whenPathDoesNotExist() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders.get("/users/doesnotexist").accept(MediaType.APPLICATION_JSON))
+        mockMvc.perform(MockMvcRequestBuilders.get("/users/doesnotexist").with(asUser(caller())).accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound());
     }
 }

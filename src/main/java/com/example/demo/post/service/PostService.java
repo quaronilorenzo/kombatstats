@@ -32,12 +32,16 @@ public class PostService {
         return postMapper.postsToPostResponses(postRepository.findByAuthorIdOrderByCreatedAtDesc(authorId));
     }
 
+    // authorId comes from the token (the controller's @AuthenticationPrincipal), never from the request body:
+    // this service knows nothing about security, it just receives who the author is.
     @Transactional
-    public PostResponse addPost(PostRequest postRequest){
+    public PostResponse addPost(PostRequest postRequest, Long authorId){
         if (postRepository.existsByTitleIgnoreCase(postRequest.title())) {
             throw new DuplicatedPostException(postRequest.title());
         }
-        User author = userService.getUserById(postRequest.authorId());
+
+        // UserNotFoundException (404) if the user was deleted after the token was issued.
+        User author = userService.getUserById(authorId);
         Post post = postMapper.postRequestToPost(postRequest);
         post.setAuthor(author);
 

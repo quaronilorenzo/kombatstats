@@ -109,7 +109,7 @@ public class PostControllerIntegrationTests extends AbstractIntegrationTest {
     class CursorPagination {
 
         private ResultActions getCursorPage(Integer size, Instant lastCreatedAt, Long lastId) throws Exception {
-            MockHttpServletRequestBuilder request = MockMvcRequestBuilders.get(CURSOR_URL)
+            MockHttpServletRequestBuilder request = MockMvcRequestBuilders.get(CURSOR_URL).with(asUser(authorId))
                     .accept(MediaType.APPLICATION_JSON);
             if (size != null) {
                 request.param("size", size.toString());
@@ -327,14 +327,14 @@ public class PostControllerIntegrationTests extends AbstractIntegrationTest {
         @Test
         @DisplayName("400 - size is not a number")
         void shouldReturn400_whenSizeIsNotANumber() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.get(CURSOR_URL).param("size", "abc"))
+            mockMvc.perform(MockMvcRequestBuilders.get(CURSOR_URL).with(asUser(authorId)).param("size", "abc"))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
         @DisplayName("400 - lastCreatedAt is not an ISO-8601 instant")
         void shouldReturn400_whenLastCreatedAtIsMalformed() throws Exception {
-            mockMvc.perform(MockMvcRequestBuilders.get(CURSOR_URL)
+            mockMvc.perform(MockMvcRequestBuilders.get(CURSOR_URL).with(asUser(authorId))
                             .param("lastCreatedAt", "yesterday")
                             .param("lastId", "1"))
                     .andExpect(status().isBadRequest());
@@ -346,7 +346,7 @@ public class PostControllerIntegrationTests extends AbstractIntegrationTest {
     class OffsetPagination {
 
         private ResultActions getOffsetPage(String... params) throws Exception {
-            MockHttpServletRequestBuilder request = MockMvcRequestBuilders.get(OFFSET_URL)
+            MockHttpServletRequestBuilder request = MockMvcRequestBuilders.get(OFFSET_URL).with(asUser(authorId))
                     .accept(MediaType.APPLICATION_JSON);
             for (int i = 0; i < params.length; i += 2) {
                 request.param(params[i], params[i + 1]);
@@ -454,6 +454,56 @@ public class PostControllerIntegrationTests extends AbstractIntegrationTest {
         void shouldReturn400_whenSortPropertyIsUnknown() throws Exception {
             getOffsetPage("sort", "doesNotExist,desc")
                     .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /posts - author comes from the token")
+    class AddPost {
+
+        private ResultActions postAs(Long callerId, long bodyAuthorId) throws Exception {
+            MockHttpServletRequestBuilder request = MockMvcRequestBuilders.post("/posts")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"authorId": %d, "title": "post %s", "content": "content"}
+                            """.formatted(bodyAuthorId, UUID.randomUUID()));
+            if (callerId != null) {
+                request.with(asUser(callerId));
+            }
+            return mockMvc.perform(request);
+        }
+
+        private List<Long> authorsOfAllPosts() {
+            return jdbcClient.sql("SELECT author_id FROM post").query(Long.class).list();
+        }
+
+        @Test
+        @DisplayName("201 - caller posts as themself")
+        void shouldReturn201_whenCallerIsTheAuthor() throws Exception {
+            postAs(authorId, authorId)
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.authorId").value(authorId));
+
+            assertThat(authorsOfAllPosts()).containsExactly(authorId);
+        }
+
+        @Test
+        @DisplayName("never attributed to another user: either 201 as the caller, or 403")
+        void shouldNotAttributePostToAnotherUser_whenBodyNamesSomeoneElse() throws Exception {
+            long otherUserId = insertUser("victim-" + UUID.randomUUID() + "@example.com");
+
+            int status = postAs(authorId, otherUserId).andReturn().getResponse().getStatus();
+
+            assertThat(status).as("status when authorId in the body is someone else").isIn(201, 403);
+            assertThat(authorsOfAllPosts()).as("authors in the post table").doesNotContain(otherUserId);
+        }
+
+        @Test
+        @DisplayName("401 - no token: nothing is written")
+        void shouldReturn401_whenNoToken() throws Exception {
+            postAs(null, authorId).andExpect(status().isUnauthorized());
+
+            assertThat(authorsOfAllPosts()).isEmpty();
         }
     }
 }

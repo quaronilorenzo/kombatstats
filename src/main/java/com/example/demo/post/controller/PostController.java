@@ -19,6 +19,7 @@ import org.springframework.data.web.PagedResourcesAssembler;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -37,9 +38,13 @@ public class PostController {
     public ResponseEntity<List<PostResponse>> findByAuthorIdOrderByCreatedAtDesc(@RequestParam Long authorId){
         return ResponseEntity.ok(postService.findByAuthorIdOrderByCreatedAtDesc(authorId));
     }
+    // The principal is the Long user id that JwtAuthenticationFilter put in the SecurityContext:
+    // the parameter type must match it, otherwise Spring passes null. errorOnInvalidType turns
+    // that silent null into an exception, so a mismatch shows up immediately.
     @PostMapping
-    public ResponseEntity<PostResponse> addPost(@RequestBody @Valid PostRequest postRequest){
-        return ResponseEntity.status(HttpStatus.CREATED).body(postService.addPost(postRequest));
+    public ResponseEntity<PostResponse> addPost(@RequestBody @Valid PostRequest postRequest,
+                                                @AuthenticationPrincipal(errorOnInvalidType = true) Long authorId){
+        return ResponseEntity.status(HttpStatus.CREATED).body(postService.addPost(postRequest, authorId));
     }
     @GetMapping("/recentposts")
     public Page<PostResponse> findAll(@PageableDefault(size = 20, sort = {"createdAt", "id"}, direction = Sort.Direction.DESC) Pageable pageable){

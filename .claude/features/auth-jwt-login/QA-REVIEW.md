@@ -1,91 +1,82 @@
 # QA Review — Login con JWT
 
-**Branch / commit:** `main`, `ba74984` → `5586b57`   **Data:** 2026-11-01
-**Verdetto:** non pronta — il login corretto funziona, ma il token non protegge nulla e la protezione dal timing attack non è attiva.
+**Branch / commit:** `main`, `ba74984` → `9d3313e` (aggiornamento della review del 2026-11-01 su `5586b57`)   **Data:** 2026-11-07
+**Verdetto:** pronta con riserve. Il filtro funziona e regge bene ai token malevoli. Restano però tre problemi da sistemare prima di considerarla chiusa: credenziali errate → 500, possibilità di pubblicare a nome di altri e test d'integrazione rimasti indietro.
 
 ## In breve
-La feature aggiunge `POST /auth/login`, che verifica le credenziali e restituisce un JWT. Il percorso corretto regge e `JwtService` si è comportato bene sui token alterati. Manca però la metà che usa il token: filtro e regole di `SecurityConfig` non esistono, quindi ogni rotta resta aperta. Il rischio più grande è che "Working login" sembri voler dire "autenticazione attiva", e non è così.
+Rispetto alla review precedente sono stati aggiunti `JwtAuthenticationFilter`, le regole su `SecurityConfig` (stateless, `/auth/**` e `/error` pubbliche, il resto autenticato, 401 senza token) e la normalizzazione dell'email al login. Il rischio principale della volta scorsa ("il token non protegge nulla") è risolto. Ora il rischio maggiore è che l'identità del token non venga ancora usata: chi è autenticato può scrivere a nome di chiunque.
 
 ## Cosa è stato verificato
-Ambiente: app locale con Postgres temporaneo e segreto casuale, poi rimossi. Database di sviluppo non toccato.
+Ambiente: app locale sulla porta 8099, Postgres temporaneo in Docker con le migrazioni applicate a mano, segreto casuale. Tutto rimosso alla fine. Database di sviluppo non toccato.
 
-- Suite su HEAD: 86 test, 20 failure, 1 errore. Sul commit base lo stesso risultato: **nessun fallimento nuovo** (*verificato*).
-- Login corretto → 200; token HS256 con solo `sub`, `iat`, `exp`; durata 900 secondi (*verificato*).
-- Validazione: password vuota, campi assenti, email non valida e JSON malformato → 400; GET → 405 (*verificato*).
-- `JwtService.extractUserId` con programma esterno: token alterato, altra chiave, scaduto, malformato, `alg=none` → tutti rifiutati con `JwtException` (*verificato*).
-- Segreto corto, vuoto o non Base64 → eccezione nel costruttore di `JwtService`, che impedisce di crearlo (*verificato sul costruttore, non sull'avvio completo*).
-- Password di 5000 caratteri al login: circa 90 ms, nessun rallentamento (*verificato*).
+- **Suite** (*verificato*): su HEAD 57 failure su 80 test; sul commit `5586b57`, 20 failure e 1 errore. **36 fallimenti nuovi**, tutti `401`: 29 test su `/posts` e 7 su `/users`. I test non inviano un token. L'errore di `shouldReturn400_whenSortPropertyIsUnknown` ora compare come 401, quindi è nascosto, non risolto. `KombatStatsApplicationTests` passa: il contesto si avvia.
+- **Senza header o con token non valido → 401** (*verificato*): header assente; `Bearer ` vuoto o di soli spazi; stringa senza senso; firma alterata; `bearer` minuscolo; doppio spazio; `alg=none`; token scaduto; `sub` non numerico, assente o oltre il limite di `long`. Nessun 500.
+- **Token valido → 200** su `/users/allusers` (*verificato*). Nessun `Set-Cookie` nella risposta, quindi niente sessione (*verificato*).
+- **Errori dietro l'autenticazione** (*verificato*): con un token valido, un percorso inesistente → 404 e un JSON malformato → 400. Senza token, entrambi → 401.
+- **Email con maiuscole al login → 200** (*verificato*): la riserva della volta scorsa è risolta.
+- **Login con credenziali errate → 500** (*verificato*), sia con password sbagliata sia con email inesistente.
+- **Pubblicare a nome di un altro** (*verificato*): token dell'utente A con `authorId` dell'utente B → 201, e il post risulta di B.
+- **Timing** (*verificato*, 10 misure ciascuno): email esistente circa 89 ms, inesistente circa 10 ms.
+- **Token con utente inesistente** (*verificato*, token firmato a mano con il segreto): `sub=987654` → 200.
+- **Token senza `exp`** (*verificato*, firmato a mano): → 200, senza scadenza.
+- **Preflight CORS**: `OPTIONS /posts` con `Origin` → 401 (*verificato*).
 
 ## Dove è stabile
-- **Firma e scadenza del token:** i casi malevoli provati vengono rifiutati.
-- **Contenuto del token e risposte:** nessun dato personale nel token, nessun hash nelle risposte di registrazione e login.
-- **Segreto:** nessun valore reale nei file di configurazione, nei commit della feature o in `http/`.
-- **Registrazione:** `UserService` cambia solo per spazi vuoti; il resto del diff non tocca rotte esistenti.
+- **Validazione del token nel filtro:** il `catch (JwtException | IllegalArgumentException)` copre anche `NumberFormatException`, che ne è sottoclasse. Tutti i casi malevoli provati finiscono in 401 e nessuno in 500.
+- **Filtro registrato una sola volta:** è creato con `new` dentro `SecurityConfig` e non è un `@Component`, quindi Spring Boot non lo registra due volte.
+- **Stateless:** nessuna sessione e nessun cookie.
+- **Rotte pubbliche:** `/auth/register` e `/auth/login` funzionano senza token; `/error` aperto permette che 400 e 404 arrivino al client autenticato.
 
 ## Dove potrebbe rompersi
 
-- **Il token non viene mai controllato** — gravità: alta — verificato
-  - Dove: `SecurityConfig.filterChain` (riga 20); filtro assente.
-  - Meccanismo: `anyRequest().permitAll()` è invariato e nessuno chiama `extractUserId`.
-  - Scenario: `GET /users/allusers` senza token o con token inventato → 200, con nomi e date di nascita.
-
 - **Si può scrivere a nome di un altro utente** — gravità: alta — verificato
   - Dove: `PostRequest.authorId` (riga 12), `PostService.addPost` (riga 40).
-  - Meccanismo: l'autore arriva dal client. Il solo filtro non basta: un utente autenticato potrebbe ancora indicare l'id di un altro.
-  - Scenario: `POST /posts` senza token con l'id di un altro utente → 201, post attribuito a quell'utente.
+  - Meccanismo: il filtro mette l'id utente nel `SecurityContext`, ma nessuno lo legge. L'autore arriva ancora dal body.
+  - Scenario: login come A, `POST /posts` con `authorId` di B → 201.
+
+- **Credenziali errate → 500 invece di 401** — gravità: media — verificato
+  - Dove: `LoginService.login` (riga 36); manca l'handler in `GlobalExceptionHandler`.
+  - Meccanismo: `CredentialException` non è gestita e finisce in `/error` come errore interno. Un client non distingue una password sbagliata da un server rotto, e ogni tentativo produce un ERROR con stack trace nei log.
+
+- **Test d'integrazione rimasti indietro** — gravità: media — verificato
+  - Dove: `PostControllerIntegrationTests`, `UserControllerIntegrationTests`.
+  - Meccanismo: le richieste MockMvc non hanno autenticazione. Oggi la suite non verifica nulla di `/posts` e `/users`, quindi una regressione lì passerebbe inosservata.
 
 - **La protezione dal timing attack non funziona** — gravità: media — verificato
-  - Dove: `AuthCostants.FAKE_PASSWORD` (riga 5), `LoginService.login` (righe 33-35).
-  - Meccanismo: il valore è testo in chiaro, non un hash BCrypt. L'encoder scrive il WARN "Encoded password does not look like BCrypt" e restituisce `false` senza calcolare.
-  - Scenario: email esistente circa 91 ms, inesistente circa 11 ms (due serie da 10 misure). Sistemare l'handler non cambia questi tempi.
-  - Limite: `/auth/register` rivela comunque quali email esistono, con il 409.
+  - Dove: `AuthCostants.FAKE_PASSWORD` (riga 5).
+  - Meccanismo: è testo in chiaro, non un hash BCrypt. `matches` scrive il WARN "does not look like BCrypt" (13 volte in questa sessione) e restituisce `false` senza calcolare. Invariato dalla review precedente.
 
-- **Chi si registra con maiuscole non riesce a entrare** — gravità: media — verificato
-  - Dove: `LoginService.login` (riga 31).
-  - Meccanismo: la registrazione salva l'email in minuscolo, il login la cerca così com'è.
-  - Scenario: registrazione con `QA.User@Example.com`, login con la stessa stringa → fallisce; in minuscolo → 200.
+- **Utente cancellato resta autenticato** — gravità: bassa — verificato con utente inesistente
+  - Dove: `JwtAuthenticationFilter.doFilterInternal` (riga 39).
+  - Meccanismo: il filtro si fida del `sub` e non controlla che l'utente esista. Oggi non c'è un endpoint di cancellazione; quando arriverà, il token resterà valido fino a 15 minuti. Il comportamento è coerente con "nessuna revoca" del README, ma conviene saperlo.
 
-- **Il filtro rischia errori 500 con alcuni token** — gravità: media — verificato su `JwtService`, filtro non ancora scritto
-  - Dove: `JwtService.extractUserId` (righe 38-45).
-  - Meccanismo: non tutti gli errori sono `JwtException`. Una stringa vuota o blank lancia `IllegalArgumentException`; un token firmato senza soggetto numerico lancia `NumberFormatException`.
-  - Scenario: header `Authorization: Bearer ` senza token. Il `catch` della sola `JwtException`, indicato nella guida allo step 8, non basta.
+- **Token senza `exp` accettato per sempre** — gravità: bassa — verificato
+  - Dove: `JwtService.extractUserId`.
+  - Meccanismo: JJWT controlla `exp` solo se presente. Oggi non è sfruttabile, perché per firmare serve il segreto e `generateToken` imposta sempre la scadenza. Se però il segreto trapelasse, i token forgiati non scadrebbero mai.
 
-- **Crash futuro alla riga 38** — gravità: media — dedotto dal codice
-  - Dove: `LoginService.login` (riga 38).
-  - Meccanismo: `user.get()` è raggiunto solo se `matches` è vero. Oggi non accade con un'email inesistente, ma se `FAKE_PASSWORD` diventa l'hash di una password nota, chi la invia con un'email inesistente ottiene `NoSuchElementException`.
-
-- **Registrazione con password multibyte → 500** — gravità: bassa — verificato
-  - Dove: `UserRequest` (riga 27), `UserService.register` (riga 45).
-  - Meccanismo: la regex conta 72 caratteri, BCrypt accetta 72 byte.
-  - Scenario: 64 caratteri, 124 byte (con `é`) → `IllegalArgumentException`, 500. Il problema è precedente al login: quel codice non è cambiato.
-
-- **La password oltre 72 byte viene troncata al login** — gravità: bassa — verificato
-  - Dove: `LoginRequest.password`.
-  - Meccanismo: la verifica considera solo i primi 72 byte.
-  - Scenario: utente con password di 72 caratteri; la stessa password con `EXTRA` in coda → 200.
+- **`trim` dell'email inutile al login** — gravità: bassa — verificato
+  - Dove: `LoginRequest` / `LoginService.login` (riga 31).
+  - Meccanismo: `@Email` rifiuta `" qa@x.com "` con 400 prima che il service lo pulisca.
 
 ## Cose importanti da sapere
-- **Algoritmo variabile:** `signWith` lo sceglie dalla lunghezza della chiave: 32 byte HS256, 48 HS384, 64 HS512 (*verificato*). Il README dichiara HS256 e lo rispetta solo con un segreto da 32 byte.
-- **`JWT_SECRET` obbligatoria anche nei test:** senza la variabile, `KombatStatsApplicationTests` fallisce con `Could not resolve placeholder` (*verificato*). In CI o su un altro PC non partirà nessun test che carica il contesto Spring.
-- **Log:** ogni login fallito produce oggi un ERROR con stack trace di circa 100 righe. Le password non compaiono nei log (*verificato sui valori usati*). Il WARN di BCrypt resta finché l'hash fittizio non è valido.
-- **`CredentialException`:** oltre all'handler, va sostituita o gestita anche la `throws` nel controller. L'import `BadRequestException` in `LoginService` non è usato.
-- **Altri test già rotti:** i 20 failure sono causati da `POST /users` → 404, rotta spostata su `/auth/register`. L'errore rimanente, `shouldReturn400_whenSortPropertyIsUnknown`, è un problema reale ma separato: un sort sconosciuto non produce 400.
+- **401 vuoto:** `HttpStatusEntryPoint` risponde senza body e senza header `WWW-Authenticate`. Il resto dell'API usa `ProblemDetail`, e un token scaduto non si distingue da un token assente.
+- **CORS:** non è configurato. Un frontend su un'altra origine riceverà 401 sul preflight.
+- **`logger` nel filtro:** il campo, non privato, nasconde il `logger` protetto ereditato da `OncePerRequestFilter`. Funziona, ma confonde.
+- **Migrazioni:** `flyway-core` ha scope `test`, quindi l'app non applica le migrazioni all'avvio. È una scelta preesistente, ma va saputa per qualsiasi ambiente nuovo.
+- **README vs codice:** il README prevede `InvalidCredentialsException` e la risposta 401. Il codice usa ancora `CredentialException` (JDK). L'import `BadRequestException` resta inutilizzato.
+- **Algoritmo e `JWT_SECRET`:** invariati rispetto alla review precedente. L'algoritmo dipende dalla lunghezza della chiave, e i test che caricano il contesto richiedono `JWT_SECRET`.
 
 ## Test che mancano
-Oggi nessun test copre `/auth/login` o `JwtService`.
-- Login corretto, password errata, email inesistente: stesso 401 e stesso corpo.
-- Email con maiuscole o spazi.
-- Hash fittizio: `matches` eseguito davvero quando l'utente non esiste.
-- `JwtService`: token valido, alterato, scaduto, vuoto, soggetto non numerico.
-- Rotte con e senza token, una volta aggiunto il filtro.
-- `POST /posts`: l'autore deve coincidere con l'utente del token.
+- Filtro: nessun header, `Bearer ` vuoto, firma alterata, token scaduto, `sub` non numerico → 401; token valido → 200.
+- Login: password errata ed email inesistente → stesso 401 e stesso corpo.
+- `POST /posts`: l'autore deve essere quello del token, a prescindere dal body.
+- `JwtService` unitario: genera, poi estrae lo stesso id.
+- Aggiornare i test esistenti di `/posts` e `/users` per autenticarsi, per esempio con un helper che genera un token o con il supporto test di Spring Security.
 
 ## Non verificato
-- Filtro e rotte protette: non esistono ancora.
-- Risposta 401 finale: l'handler non c'è, oggi le credenziali errate danno 500.
-- Prestazioni e attacchi a forza bruta sotto carico: nessuna prova di carico, e nessun limite ai tentativi nel codice.
-- Avvio dell'app con segreto non valido: provato solo il costruttore di `JwtService`.
-- Tempi su un ambiente diverso da questo PC: i valori in millisecondi non sono trasferibili, il divario sì.
+- Prestazioni e forza bruta sotto carico: non c'è un limite ai tentativi.
+- Avvio con segreto non valido o di lunghezza diversa da 32 byte.
+- Tempi su un'altra macchina: i millisecondi non si trasferiscono, il divario sì.
 
 ## Note dello sviluppatore
 > Spazio tuo: risposte, contestazioni, cose che il QA non poteva sapere.
