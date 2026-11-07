@@ -70,7 +70,9 @@ public class JwtAuthenticationIntegrationTests extends AbstractIntegrationTest {
         return Stream.of(
                 Arguments.of("GET /users/allusers", (Supplier<MockHttpServletRequestBuilder>) () ->
                         MockMvcRequestBuilders.get("/users/allusers")),
-                Arguments.of("GET /users/userbyid", (Supplier<MockHttpServletRequestBuilder>) () ->
+                Arguments.of("GET /users/me", (Supplier<MockHttpServletRequestBuilder>) () ->
+                        MockMvcRequestBuilders.get("/users/me")),
+                Arguments.of("GET /users/userbyid",(Supplier<MockHttpServletRequestBuilder>) () ->
                         MockMvcRequestBuilders.get("/users/userbyid").param("id", "1")),
                 Arguments.of("GET /users/userbyname", (Supplier<MockHttpServletRequestBuilder>) () ->
                         MockMvcRequestBuilders.get("/users/userbyname").param("name", "Test")),

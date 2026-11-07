@@ -22,4 +22,7 @@ public interface UserErrors {
 
     String invalidCredentialsUri = "http://localhost:8080/errors/invalid-credentials";
     String invalidCredentialsMessage = "Invalid credentials";
+
+    String unauthenticatedUri = "http://localhost:8080/errors/unauthenticated";
+    String unauthenticatedMessage = "Authentication required";
 }

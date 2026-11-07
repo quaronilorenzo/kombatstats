@@ -5,6 +5,7 @@ import com.example.demo.post.entity.Post;
 import com.example.demo.user.costants.UserErrors;
 import com.example.demo.user.exceptions.DuplicatedUserException;
 import com.example.demo.user.exceptions.InvalidCredentialsException;
+import com.example.demo.user.exceptions.UnauthenticatedUserException;
 import com.example.demo.user.exceptions.UserNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -221,6 +222,20 @@ class GlobalExceptionHandlerTests {
                 () -> assertEquals(UserErrors.invalidCredentialsMessage, problem.getTitle()),
                 () -> assertEquals("email or password is wrong", problem.getDetail()),
                 () -> assertEquals(URI.create(UserErrors.invalidCredentialsUri), problem.getType())
+        );
+    }
+
+    @Test
+    void handleUnauthenticatedUser_shouldReturnUnauthorized() {
+        ResponseEntity<Object> response = globalExceptionHandler.handleUnauthenticatedUser(
+                new UnauthenticatedUserException(), webRequest);
+        ProblemDetail problem = (ProblemDetail) response.getBody();
+
+        assertAll(
+                () -> assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode()),
+                () -> assertEquals(UserErrors.unauthenticatedMessage, problem.getTitle()),
+                () -> assertEquals("a valid token is required to access this resource", problem.getDetail()),
+                () -> assertEquals(URI.create(UserErrors.unauthenticatedUri), problem.getType())
         );
     }
 

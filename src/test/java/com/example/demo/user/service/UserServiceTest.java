@@ -6,6 +6,7 @@ import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.mapper.UserMapper;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.user.exceptions.UnauthenticatedUserException;
 import com.example.demo.user.exceptions.UserNotFoundException;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.usersport.dto.UserSportRequest;
@@ -218,6 +219,43 @@ public class UserServiceTest {
                     .hasMessage("user with id 404 not found");
 
             verify(userSportService, never()).findByUserId(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("findCurrentUser(Long)")
+    class FindCurrentUser {
+
+        @Test
+        @DisplayName("returns the user of the given id")
+        void shouldReturnUser_whenIdIsPresent() {
+            User saved = persisted(newUser(), 1L);
+            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, List.of());
+            when(userRepository.findById(1L)).thenReturn(Optional.of(saved));
+            when(userSportService.findByUserId(1L)).thenReturn(List.of());
+            when(userSportMapper.userSportsToUserSportResponses(List.of())).thenReturn(List.of());
+            when(userMapper.userToUserResponse(saved, List.of())).thenReturn(expected);
+
+            assertThat(userService.findCurrentUser(1L)).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("throws UnauthenticatedUserException when the id is null, without touching the database")
+        void shouldThrowUnauthenticatedUserException_whenIdIsNull() {
+            assertThatThrownBy(() -> userService.findCurrentUser(null))
+                    .isInstanceOf(UnauthenticatedUserException.class);
+
+            verify(userRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("throws UserNotFoundException when the user of the token no longer exists")
+        void shouldThrowUserNotFoundException_whenUserWasDeleted() {
+            when(userRepository.findById(7L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.findCurrentUser(7L))
+                    .isInstanceOf(UserNotFoundException.class)
+                    .hasMessage("user with id 7 not found");
         }
     }
 

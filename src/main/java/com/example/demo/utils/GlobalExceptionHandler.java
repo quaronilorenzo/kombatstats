@@ -6,6 +6,7 @@ import com.example.demo.sport.exceptions.SportNotFoundException;
 import com.example.demo.user.costants.UserErrors;
 import com.example.demo.user.exceptions.DuplicatedUserException;
 import com.example.demo.user.exceptions.InvalidCredentialsException;
+import com.example.demo.user.exceptions.UnauthenticatedUserException;
 import com.example.demo.user.exceptions.UserNotFoundException;
 import com.example.demo.usersport.costants.UserSportErrors;
 import com.example.demo.usersport.exceptions.DuplicatedUserSportException;
@@ -117,6 +118,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "email or password is wrong");
         problem.setTitle(UserErrors.invalidCredentialsMessage);
         problem.setType(URI.create(UserErrors.invalidCredentialsUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
+    @ExceptionHandler(UnauthenticatedUserException.class)
+    public ResponseEntity<Object> handleUnauthenticatedUser(UnauthenticatedUserException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED,
+                "a valid token is required to access this resource");
+        problem.setTitle(UserErrors.unauthenticatedMessage);
+        problem.setType(URI.create(UserErrors.unauthenticatedUri));
         return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
                 HttpStatusCode.valueOf(problem.getStatus()), request);
     }

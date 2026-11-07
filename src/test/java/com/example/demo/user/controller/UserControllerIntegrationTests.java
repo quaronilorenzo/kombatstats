@@ -352,6 +352,62 @@ public class UserControllerIntegrationTests extends AbstractIntegrationTest {
     }
 
     @Nested
+    @DisplayName("GET /users/me")
+    class GetCurrentUser {
+
+        @Test
+        @DisplayName("200 - returns the user of the token")
+        void shouldReturn200_withTheUserOfTheToken() throws Exception {
+            User saved = createUserViaApi(JsonPathMock.VALID_USER_REQUEST_JSON_PATH);
+
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/me").with(asUser(saved.getId()))
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.id").value(saved.getId()))
+                    .andExpect(jsonPath("$.firstName").value(saved.getFirstName()))
+                    .andExpect(jsonPath("$.lastName").value(saved.getLastName()))
+                    .andExpect(jsonPath("$.email").doesNotExist())
+                    .andExpect(jsonPath("$.hashPassword").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("200 - each caller sees only their own data")
+        void shouldReturnEachCallerTheirOwnUser() throws Exception {
+            long first = insertUser("first@example.com");
+            long second = insertUser("second@example.com");
+
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/me").with(asUser(first)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(first));
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/me").with(asUser(second)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(second));
+        }
+
+        @Test
+        @DisplayName("401 - no token")
+        void shouldReturn401_whenThereIsNoToken() throws Exception {
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/me"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("404 - valid token of a user deleted after login")
+        void shouldReturn404_whenUserOfTheTokenWasDeleted() throws Exception {
+            long deleted = insertUser("deleted@example.com");
+            String token = bearerFor(deleted);
+            jdbcClient.sql("DELETE FROM users WHERE id = :id").param("id", deleted).update();
+
+            mockMvc.perform(MockMvcRequestBuilders.get("/users/me").header("Authorization", token))
+                    .andExpect(status().isNotFound())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.title").value(UserErrors.userNotFoundMessage))
+                    .andExpect(jsonPath("$.detail").value("user with id " + deleted + " not found"));
+        }
+    }
+
+    @Nested
     @DisplayName("GET /users/userbyid")
     class GetUserById {
 

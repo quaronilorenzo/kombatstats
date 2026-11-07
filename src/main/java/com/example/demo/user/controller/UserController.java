@@ -5,6 +5,7 @@ import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -24,6 +25,11 @@ public class UserController {
     @GetMapping("/allusers")
     public List<UserResponse> getAllUsers() {
         return _userService.findAll();
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> getCurrentUser(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(_userService.findCurrentUser(userId));
     }
 
     @GetMapping("/userbyid")

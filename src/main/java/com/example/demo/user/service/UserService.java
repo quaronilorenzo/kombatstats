@@ -6,6 +6,7 @@ import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.mapper.UserMapper;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.user.exceptions.UnauthenticatedUserException;
 import com.example.demo.user.exceptions.UserNotFoundException;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.usersport.dto.UserSportResponse;
@@ -73,6 +74,13 @@ public class UserService {
     public UserResponse findUserById(Long id) {
         User user = getUserById(id);
         return userMapper.userToUserResponse(user, getSportsForUser(user));
+    }
+
+    public UserResponse findCurrentUser(Long userId) {
+        if (userId == null) {
+            throw new UnauthenticatedUserException();
+        }
+        return findUserById(userId);
     }
 
     public User getUserById(Long id) {
