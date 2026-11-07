@@ -9,4 +9,10 @@ public record LoginRequest(
         String email,
         @NotBlank(message = "User must have a password")
         String password
-) {}
+) {
+    public LoginRequest {
+        if (email != null) {
+            email = email.trim();
+        }
+    }
+}

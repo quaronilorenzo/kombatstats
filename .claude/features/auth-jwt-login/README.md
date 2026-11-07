@@ -14,19 +14,19 @@ Il token è firmato, non cifrato: chiunque può leggerne il contenuto, ma non mo
 _Le righe indicate sono quelle del codice all'ultima modifica; se un numero non torna, cerca il metodo per nome._
 
 ### 1. Riceve e valida email e password
-**Cosa succede:** il login accetta un'email con formato valido e una password non vuota; altrimenti risponde 400.
-**Perché così:** la regex della password vale solo alla registrazione, così chi ha una password vecchia può ancora entrare.
-**Codice:** [`AuthController.login`](../../../src/main/java/com/example/demo/user/controller/AuthController.java#L41-L44) · [`LoginRequest`](../../../src/main/java/com/example/demo/user/dto/LoginRequest.java#L6-L12)
+**Cosa succede:** gli spazi attorno all'email vengono tolti appena arriva la richiesta. Poi il login accetta un'email con formato valido e una password non vuota; altrimenti risponde 400.
+**Perché così:** gli spazi vanno tolti prima della validazione, altrimenti il formato dell'email li rifiuta. La regex della password vale solo alla registrazione, così chi ha una password vecchia può ancora entrare.
+**Codice:** [`AuthController.login`](../../../src/main/java/com/example/demo/user/controller/AuthController.java#L40-L43) · [`LoginRequest`](../../../src/main/java/com/example/demo/user/dto/LoginRequest.java#L6-L18)
 
 ### 2. Cerca l'utente
-**Cosa succede:** l'email viene ridotta in minuscolo e ripulita dagli spazi, poi cercata nel database.
-**Perché così:** è la stessa normalizzazione della registrazione. Gli spazi però vengono rifiutati già al passo 1, quindi oggi il `trim` non ha effetto.
-**Codice:** [`LoginService.login`](../../../src/main/java/com/example/demo/user/service/LoginService.java#L30-L31)
+**Cosa succede:** l'email viene ridotta in minuscolo e cercata nel database.
+**Perché così:** è la stessa normalizzazione della registrazione.
+**Codice:** [`LoginService.login`](../../../src/main/java/com/example/demo/user/service/LoginService.java#L29-L30)
 
 ### 3. Verifica la password
-**Cosa succede:** BCrypt confronta la password ricevuta con l'hash salvato. Se l'utente non esiste, il confronto avviene con un valore fittizio.
-**Perché così:** con un hash fittizio i tempi di risposta non dovrebbero rivelare quali email esistono. Oggi il valore fittizio non è un hash BCrypt, quindi questa protezione non è attiva. Le credenziali errate generano un'eccezione senza handler, cioè un 500, non il 401 previsto.
-**Codice:** [`LoginService.login`](../../../src/main/java/com/example/demo/user/service/LoginService.java#L32-L37) · [`AuthCostants`](../../../src/main/java/com/example/demo/user/costants/AuthCostants.java)
+**Cosa succede:** BCrypt confronta la password ricevuta con l'hash salvato. Se l'utente non esiste, il confronto avviene con un hash BCrypt fittizio, ottenuto da un valore casuale che nessuno conosce. Utente assente o password sbagliata danno la stessa risposta: 401, con un `ProblemDetail` "Invalid credentials".
+**Perché così:** il confronto con l'hash fittizio costa quanto uno vero, così i tempi non rivelano quali email esistono. Il controllo sull'utente assente viene dopo il confronto, e da solo basta a rifiutare: anche se qualcuno indovinasse il valore fittizio, non entrerebbe.
+**Codice:** [`LoginService.login`](../../../src/main/java/com/example/demo/user/service/LoginService.java#L31-L37) · [`AuthCostants`](../../../src/main/java/com/example/demo/user/costants/AuthCostants.java) · [`GlobalExceptionHandler.handleInvalidCredentials`](../../../src/main/java/com/example/demo/utils/GlobalExceptionHandler.java#L113-L122)
 
 ### 4. Genera e restituisce il token
 **Cosa succede:** crea un JWT firmato con l'id dell'utente come soggetto e una scadenza di 15 minuti, e lo restituisce come `accessToken`.
@@ -77,17 +77,18 @@ _Le righe indicate sono quelle del codice all'ultima modifica; se un numero non 
 - [`JwtAuthenticationFilter`](../../../src/main/java/com/example/demo/security/JwtAuthenticationFilter.java) — valida il token a ogni richiesta (`security`)
 - [`SecurityConfig`](../../../src/main/java/com/example/demo/config/SecurityConfig.java) — stateless, regole sulle rotte, filtro, 401 senza token (`config`)
 - [`PostController`](../../../src/main/java/com/example/demo/post/controller/PostController.java), [`PostService`](../../../src/main/java/com/example/demo/post/service/PostService.java), [`PostRequest`](../../../src/main/java/com/example/demo/post/dto/PostRequest.java) — creazione di un post con l'autore preso dal token (`post`)
-- **Ancora da fare:** `InvalidCredentialsException` e il suo handler in `GlobalExceptionHandler` (oggi si usa `CredentialException` del JDK, senza handler); un hash BCrypt vero in `AuthCostants`.
+- [`InvalidCredentialsException`](../../../src/main/java/com/example/demo/user/exceptions/InvalidCredentialsException.java) — credenziali errate (`user.exceptions`)
+- [`GlobalExceptionHandler`](../../../src/main/java/com/example/demo/utils/GlobalExceptionHandler.java), [`UserErrors`](../../../src/main/java/com/example/demo/user/costants/UserErrors.java) — risposta 401 "Invalid credentials" (`utils`, `user.costants`)
 
 ## Avvio e deploy
 - **Prima di avviare:** la variabile d'ambiente `JWT_SECRET`, una chiave Base64 di almeno 32 byte. Con 32 byte la firma è HS256; con più byte JJWT passa a HS384 o HS512. I test usano un segreto fisso in `src/test/resources`.
 - **All'avvio parte da solo:** il filtro e le regole di sicurezza. Nessuna tabella nuova, nessuna migrazione.
 - **In produzione:** non c'è stato lato server, quindi più istanze funzionano purché condividano lo stesso `JWT_SECRET`. Cambiare il segreto invalida tutti i token emessi. `POST /posts` non accetta più `authorId`: i client che lo mandano ancora non ricevono errori, ma il campo viene ignorato.
-- **Verificato:** `./mvnw clean test` dopo la modifica dei post dà 179 test: 172 passano, 7 rossi, 3 disabilitati. I 7 rossi sono i punti ancora da fare al passo 3, l'email con spazi al passo 2 e il sort sconosciuto, che non riguarda questa feature. Il test "mai attribuito a un altro utente" ora passa. Non verificato a mano con l'app avviata.
+- **Verificato:** `./mvnw clean test` dà 182 test: tutti passano, tranne 3 disabilitati (token senza `exp`, utente cancellato, nome case-insensitive). Non verificato a mano con l'app avviata.
 
 ## Se qualcosa non va
 - 401 con un token che sembra valido → passo 6: controlla che l'header sia esattamente `Bearer ` + token e che il token non sia scaduto (15 minuti). Il filtro scrive "Jwt is not valid" solo a livello debug.
-- 500 sul login con credenziali errate → passo 3: manca l'handler per `CredentialException`.
+- 401 "Invalid credentials" con la password giusta → passo 2: controlla l'email salvata nel database (minuscolo); passo 3: la password viene confrontata così com'è, maiuscole comprese.
 - 500 o errore di tipo su `POST /posts` con un token valido → passo 8: il parametro con `@AuthenticationPrincipal` deve avere lo stesso tipo del principal messo dal filtro (`Long`).
 - 404 "user not found" su `POST /posts` → passo 8: l'utente del token è stato cancellato dopo il login.
 - L'app non parte con "Could not resolve placeholder" → manca `JWT_SECRET`.

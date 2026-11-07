@@ -2,6 +2,7 @@ package com.example.demo.user.controller;
 
 import com.example.demo.testcontainers.AbstractIntegrationTest;
 import com.example.demo.testcontainers.JsonPathMock;
+import com.example.demo.user.costants.UserErrors;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -15,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import java.util.Map;
@@ -50,6 +52,18 @@ public class AuthLoginIntegrationTests extends AbstractIntegrationTest {
 
     private long insertUserWithPassword(String email, String rawPassword) {
         return insertUser(email, passwordEncoder.encode(rawPassword));
+    }
+
+    private static ResultMatcher[] invalidCredentials() {
+        return new ResultMatcher[]{
+                status().isUnauthorized(),
+                content().contentType(MediaType.APPLICATION_PROBLEM_JSON),
+                jsonPath("$.status").value(401),
+                jsonPath("$.title").value(UserErrors.invalidCredentialsMessage),
+                jsonPath("$.detail").value("email or password is wrong"),
+                jsonPath("$.type").value(UserErrors.invalidCredentialsUri),
+                jsonPath("$.accessToken").doesNotExist()
+        };
     }
 
     private static String accessToken(MvcResult result) throws Exception {
@@ -146,13 +160,13 @@ public class AuthLoginIntegrationTests extends AbstractIntegrationTest {
         void shouldReturn401_whenPasswordIsWrong() throws Exception {
             insertUserWithPassword(EMAIL, PASSWORD);
 
-            login(loginJson(EMAIL, "Wr0ng!Passw0rd")).andExpect(status().isUnauthorized());
+            login(loginJson(EMAIL, "Wr0ng!Passw0rd")).andExpectAll(invalidCredentials());
         }
 
         @Test
         @DisplayName("unknown email")
         void shouldReturn401_whenEmailDoesNotExist() throws Exception {
-            login(loginJson("ghost@example.com", PASSWORD)).andExpect(status().isUnauthorized());
+            login(loginJson("ghost@example.com", PASSWORD)).andExpectAll(invalidCredentials());
         }
 
         @Test
@@ -160,7 +174,7 @@ public class AuthLoginIntegrationTests extends AbstractIntegrationTest {
         void shouldReturn401_whenPasswordCaseDiffers() throws Exception {
             insertUserWithPassword(EMAIL, PASSWORD);
 
-            login(loginJson(EMAIL, PASSWORD.toUpperCase())).andExpect(status().isUnauthorized());
+            login(loginJson(EMAIL, PASSWORD.toUpperCase())).andExpectAll(invalidCredentials());
         }
 
         @Test

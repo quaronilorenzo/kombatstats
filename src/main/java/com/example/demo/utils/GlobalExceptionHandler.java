@@ -5,6 +5,7 @@ import com.example.demo.post.exceptions.DuplicatedPostException;
 import com.example.demo.sport.exceptions.SportNotFoundException;
 import com.example.demo.user.costants.UserErrors;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.user.exceptions.InvalidCredentialsException;
 import com.example.demo.user.exceptions.UserNotFoundException;
 import com.example.demo.usersport.costants.UserSportErrors;
 import com.example.demo.usersport.exceptions.DuplicatedUserSportException;
@@ -17,6 +18,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.validation.FieldError;
 
 import java.net.URI;
@@ -104,6 +106,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "a post with title " + ex.getMessage() + " already exists");
         problem.setTitle(PostErrors.postDuplicatedMessage);
         problem.setType(URI.create(PostErrors.postDuplicatedUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Object> handleInvalidCredentials(InvalidCredentialsException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED,
+                "email or password is wrong");
+        problem.setTitle(UserErrors.invalidCredentialsMessage);
+        problem.setType(URI.create(UserErrors.invalidCredentialsUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<Object> handlePropertyReference(PropertyReferenceException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "unknown property: " + ex.getPropertyName());
+        problem.setTitle(PostErrors.sortPropertyInvalidMessage);
+        problem.setType(URI.create(PostErrors.sortPropertyInvalidUri));
         return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
                 HttpStatusCode.valueOf(problem.getStatus()), request);
     }

@@ -19,4 +19,7 @@ public interface UserErrors {
 
     String fieldMandatoryUri = "http://localhost:8080/field-is-mandatory";
     String fieldInvalidUri = "http://localhost:8080/field-invalid";
+
+    String invalidCredentialsUri = "http://localhost:8080/errors/invalid-credentials";
+    String invalidCredentialsMessage = "Invalid credentials";
 }

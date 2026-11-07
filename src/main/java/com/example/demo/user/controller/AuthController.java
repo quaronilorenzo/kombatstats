@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import javax.security.auth.login.CredentialException;
 import java.net.URI;
 @RequestMapping("auth")
 @RestController
@@ -39,7 +38,7 @@ public class AuthController {
         return ResponseEntity.created(location).body(userResponse);
     }
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest loginRequest) throws CredentialException {
+    public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest loginRequest) {
         return ResponseEntity.ok().body(_loginService.login(loginRequest));
     }
 

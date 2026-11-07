@@ -4,6 +4,7 @@ import com.example.demo.security.JwtService;
 import com.example.demo.user.dto.LoginRequest;
 import com.example.demo.user.dto.LoginResponse;
 import com.example.demo.user.entity.User;
+import com.example.demo.user.exceptions.InvalidCredentialsException;
 import com.example.demo.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,12 +16,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -53,7 +54,7 @@ public class LoginServiceTest {
 
     @Test
     @DisplayName("correct credentials: token generated for that user")
-    void shouldReturnToken_whenCredentialsAreCorrect() throws Exception {
+    void shouldReturnToken_whenCredentialsAreCorrect() {
         User user = persistedUser();
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(PASSWORD, HASHED_PASSWORD)).thenReturn(true);
@@ -66,7 +67,7 @@ public class LoginServiceTest {
 
     @Test
     @DisplayName("email with uppercase and spaces: looked up lowercase and trimmed")
-    void shouldNormalizeEmail_beforeLookup() throws Exception {
+    void shouldNormalizeEmail_beforeLookup() {
         User user = persistedUser();
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(PASSWORD, HASHED_PASSWORD)).thenReturn(true);
@@ -84,7 +85,7 @@ public class LoginServiceTest {
         when(passwordEncoder.matches("WrongPassword1!", HASHED_PASSWORD)).thenReturn(false);
 
         assertThatThrownBy(() -> loginService.login(new LoginRequest(EMAIL, "WrongPassword1!")))
-                .isInstanceOf(Exception.class);
+                .isInstanceOf(InvalidCredentialsException.class);
 
         verify(jwtService, never()).generateToken(any());
     }
@@ -95,8 +96,19 @@ public class LoginServiceTest {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> loginService.login(new LoginRequest(EMAIL, PASSWORD)))
-                .isInstanceOf(Exception.class)
-                .isNotInstanceOf(NoSuchElementException.class);
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    @DisplayName("unknown email: rejected even if the password matches the fake hash")
+    void shouldReject_whenEmailDoesNotExistAndFakeHashMatches() {
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
+        when(passwordEncoder.matches(eq(PASSWORD), anyString())).thenReturn(true);
+
+        assertThatThrownBy(() -> loginService.login(new LoginRequest(EMAIL, PASSWORD)))
+                .isInstanceOf(InvalidCredentialsException.class);
 
         verify(jwtService, never()).generateToken(any());
     }
@@ -107,7 +119,7 @@ public class LoginServiceTest {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> loginService.login(new LoginRequest(EMAIL, PASSWORD)))
-                .isInstanceOf(Exception.class);
+                .isInstanceOf(InvalidCredentialsException.class);
 
         ArgumentCaptor<String> hash = ArgumentCaptor.forClass(String.class);
         verify(passwordEncoder).matches(eq(PASSWORD), hash.capture());

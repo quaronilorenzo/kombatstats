@@ -1,5 +1,6 @@
 package com.example.demo.post.controller;
 
+import com.example.demo.post.costants.PostErrors;
 import com.example.demo.testcontainers.AbstractIntegrationTest;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -453,7 +454,12 @@ public class PostControllerIntegrationTests extends AbstractIntegrationTest {
         @DisplayName("400 - sort on a property that does not exist")
         void shouldReturn400_whenSortPropertyIsUnknown() throws Exception {
             getOffsetPage("sort", "doesNotExist,desc")
-                    .andExpect(status().isBadRequest());
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(400))
+                    .andExpect(jsonPath("$.title").value(PostErrors.sortPropertyInvalidMessage))
+                    .andExpect(jsonPath("$.detail").value("unknown property: doesNotExist"))
+                    .andExpect(jsonPath("$.type").value(PostErrors.sortPropertyInvalidUri));
         }
     }
 

@@ -1,10 +1,15 @@
 package com.example.demo.utils;
 
+import com.example.demo.post.costants.PostErrors;
+import com.example.demo.post.entity.Post;
 import com.example.demo.user.costants.UserErrors;
 import com.example.demo.user.exceptions.DuplicatedUserException;
+import com.example.demo.user.exceptions.InvalidCredentialsException;
 import com.example.demo.user.exceptions.UserNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.util.TypeInformation;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -14,6 +19,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.context.request.WebRequest;
 
 import java.net.URI;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -201,6 +207,36 @@ class GlobalExceptionHandlerTests {
                 () -> assertEquals("unknown is invalid", problem.getTitle()),
                 () -> assertEquals("unknown failed validation", problem.getDetail()),
                 () -> assertEquals(URI.create(UserErrors.fieldInvalidUri), problem.getType())
+        );
+    }
+
+    @Test
+    void handleInvalidCredentials_shouldReturnUnauthorized() {
+        ResponseEntity<Object> response = globalExceptionHandler.handleInvalidCredentials(
+                new InvalidCredentialsException(), webRequest);
+        ProblemDetail problem = (ProblemDetail) response.getBody();
+
+        assertAll(
+                () -> assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode()),
+                () -> assertEquals(UserErrors.invalidCredentialsMessage, problem.getTitle()),
+                () -> assertEquals("email or password is wrong", problem.getDetail()),
+                () -> assertEquals(URI.create(UserErrors.invalidCredentialsUri), problem.getType())
+        );
+    }
+
+    @Test
+    void handlePropertyReference_withUnknownSortProperty_shouldReturnBadRequest() {
+        PropertyReferenceException ex = new PropertyReferenceException(
+                "doesNotExist", TypeInformation.of(Post.class), List.of());
+
+        ResponseEntity<Object> response = globalExceptionHandler.handlePropertyReference(ex, webRequest);
+        ProblemDetail problem = (ProblemDetail) response.getBody();
+
+        assertAll(
+                () -> assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode()),
+                () -> assertEquals(PostErrors.sortPropertyInvalidMessage, problem.getTitle()),
+                () -> assertEquals("unknown property: doesNotExist", problem.getDetail()),
+                () -> assertEquals(URI.create(PostErrors.sortPropertyInvalidUri), problem.getType())
         );
     }
 }
