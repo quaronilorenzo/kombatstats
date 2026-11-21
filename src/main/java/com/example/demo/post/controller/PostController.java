@@ -56,6 +56,12 @@ public class PostController {
     public ResponseEntity<PostResponse> updatePost(@RequestBody @Valid PostUpdateRequest postUpdateRequest, @AuthenticationPrincipal(errorOnInvalidType = true) Long authorId){
         return ResponseEntity.ok(postService.updatePost(postUpdateRequest, authorId));
     }
+
+    @DeleteMapping("/deletepost")
+    public ResponseEntity<Void> deletePost(@RequestParam Long id, @AuthenticationPrincipal(errorOnInvalidType = true) Long authorId){
+        postService.deletePost(id, authorId);
+        return ResponseEntity.noContent().build();
+    }
     /*
         Posts with cursor pagination, its more quicker than spring pagination, because it uses indexes on DB.
      */

@@ -715,4 +715,112 @@ public class PostControllerIntegrationTests extends AbstractIntegrationTest {
             assertThat(stored(postId)).isEqualTo(before);
         }
     }
+
+    @Nested
+    @DisplayName("DELETE /posts/deletepost - only the author can delete")
+    class DeletePost {
+
+        private ResultActions deleteAs(Long callerId, String id) throws Exception {
+            MockHttpServletRequestBuilder request = MockMvcRequestBuilders.delete("/posts/deletepost");
+            if (id != null) {
+                request.param("id", id);
+            }
+            if (callerId != null) {
+                request.with(asUser(callerId));
+            }
+            return mockMvc.perform(request);
+        }
+
+        private boolean exists(long postId) {
+            return jdbcClient.sql("SELECT count(*) FROM post WHERE id = :id")
+                    .param("id", postId)
+                    .query(Long.class)
+                    .single() == 1L;
+        }
+
+        @Test
+        @DisplayName("204 - author deletes their post: row gone, empty body")
+        void shouldReturn204_andDelete_whenCallerIsTheAuthor() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+
+            deleteAs(authorId, String.valueOf(postId))
+                    .andExpect(status().isNoContent())
+                    .andExpect(content().string(""));
+
+            assertThat(exists(postId)).isFalse();
+        }
+
+        @Test
+        @DisplayName("204 - only the requested post is deleted, the others stay")
+        void shouldDeleteOnlyRequestedPost() throws Exception {
+            long toDelete = insertPost(BASE_TIME).id();
+            long toKeep = insertPost(BASE_TIME.plusSeconds(1)).id();
+
+            deleteAs(authorId, String.valueOf(toDelete)).andExpect(status().isNoContent());
+
+            assertThat(exists(toDelete)).isFalse();
+            assertThat(exists(toKeep)).isTrue();
+        }
+
+        @Test
+        @DisplayName("404 - deleting the same post twice: second call finds nothing")
+        void shouldReturn404_whenDeletedTwice() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+
+            deleteAs(authorId, String.valueOf(postId)).andExpect(status().isNoContent());
+            deleteAs(authorId, String.valueOf(postId))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.title").value(PostErrors.postNotFoundMessage));
+        }
+
+        @Test
+        @DisplayName("404 - post does not exist")
+        void shouldReturn404_whenPostDoesNotExist() throws Exception {
+            deleteAs(authorId, String.valueOf(Long.MAX_VALUE))
+                    .andExpect(status().isNotFound())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(404))
+                    .andExpect(jsonPath("$.title").value(PostErrors.postNotFoundMessage))
+                    .andExpect(jsonPath("$.type").value(PostErrors.postNotFoundUri))
+                    .andExpect(jsonPath("$.detail").value("Post " + Long.MAX_VALUE + " does not exist"));
+        }
+
+        @Test
+        @DisplayName("403 - caller is not the author: post still there")
+        void shouldReturn403_whenCallerIsNotTheAuthor() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+            long otherUserId = insertUser("intruder-" + UUID.randomUUID() + "@example.com");
+
+            deleteAs(otherUserId, String.valueOf(postId))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.title").value(PostErrors.notPostAuthorMessage))
+                    .andExpect(jsonPath("$.type").value(PostErrors.notPostAuthorUri))
+                    .andExpect(jsonPath("$.detail").value("you are not the author of post " + postId));
+
+            assertThat(exists(postId)).isTrue();
+        }
+
+        @Test
+        @DisplayName("400 - id param missing")
+        void shouldReturn400_whenIdIsMissing() throws Exception {
+            deleteAs(authorId, null).andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("400 - id is not a number")
+        void shouldReturn400_whenIdIsNotANumber() throws Exception {
+            deleteAs(authorId, "abc").andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("401 - no token: post still there")
+        void shouldReturn401_whenNoToken() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+
+            deleteAs(null, String.valueOf(postId)).andExpect(status().isUnauthorized());
+
+            assertThat(exists(postId)).isTrue();
+        }
+    }
 }

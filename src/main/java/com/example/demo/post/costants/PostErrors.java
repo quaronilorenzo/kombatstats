@@ -11,5 +11,5 @@ public interface PostErrors {
     String postNotFoundMessage = "Post not found";
 
     String notPostAuthorUri = "http://localhost:8080/errors/not-post-author";
-    String notPostAuthorMessage = "Only the author can modify this post";
+    String notPostAuthorMessage = "Only the author can modify or delete this post";
 }

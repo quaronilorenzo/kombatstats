@@ -84,9 +84,23 @@ public class PostService {
         } else if ( !Objects.equals(post.get().getAuthor().getId(), authorId)) {
             throw new NotPostAuthorException(post.get().getId());
         }
-        post.get().setTitle(postUpdateRequest.title());
-        post.get().setContent(postUpdateRequest.content());
+        if(postUpdateRequest.title() != null){
+            post.get().setTitle(postUpdateRequest.title());
+        }
+        if(postUpdateRequest.content() != null){
+            post.get().setContent(postUpdateRequest.content());
+        }
         return postMapper.postToPostResponse(postRepository.save((post.get())));
+    }
+
+    @Transactional
+    public void deletePost(Long postId, Long authorId){
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new PostNotFoundException("Post " + postId + " does not exist"));
+        if (!Objects.equals(post.getAuthor().getId(), authorId)) {
+            throw new NotPostAuthorException(postId);
+        }
+        postRepository.delete(post);
     }
 
     private Pageable withStableSort(Pageable pageable){

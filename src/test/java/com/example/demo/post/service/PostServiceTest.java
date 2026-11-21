@@ -145,4 +145,46 @@ public class PostServiceTest {
             assertThat(post.getContent()).isEqualTo(OLD_CONTENT);
         }
     }
+
+    @Nested
+    @DisplayName("deletePost(Long, Long)")
+    class DeletePost {
+
+        @Test
+        @DisplayName("throws PostNotFoundException and deletes nothing when the post does not exist")
+        void shouldThrowPostNotFound_whenPostDoesNotExist() {
+            when(postRepository.findById(POST_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> postService.deletePost(POST_ID, AUTHOR_ID))
+                    .isInstanceOf(PostNotFoundException.class)
+                    .hasMessageContaining(String.valueOf(POST_ID));
+
+            verify(postRepository, never()).delete(any());
+            verify(postRepository, never()).deleteById(any());
+        }
+
+        @Test
+        @DisplayName("throws NotPostAuthorException with the post id and deletes nothing when the caller is not the author")
+        void shouldThrowNotPostAuthor_whenCallerIsNotTheAuthor() {
+            when(postRepository.findById(POST_ID)).thenReturn(Optional.of(existingPost()));
+
+            assertThatThrownBy(() -> postService.deletePost(POST_ID, OTHER_USER_ID))
+                    .isInstanceOfSatisfying(NotPostAuthorException.class,
+                            ex -> assertThat(ex.getPostId()).isEqualTo(POST_ID));
+
+            verify(postRepository, never()).delete(any());
+            verify(postRepository, never()).deleteById(any());
+        }
+
+        @Test
+        @DisplayName("deletes the loaded post when the caller is the author")
+        void shouldDeletePost_whenCallerIsTheAuthor() {
+            Post post = existingPost();
+            when(postRepository.findById(POST_ID)).thenReturn(Optional.of(post));
+
+            postService.deletePost(POST_ID, AUTHOR_ID);
+
+            verify(postRepository).delete(post);
+        }
+    }
 }
