@@ -512,4 +512,207 @@ public class PostControllerIntegrationTests extends AbstractIntegrationTest {
             assertThat(authorsOfAllPosts()).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("PATCH /posts/updatepost - only the author can update")
+    class UpdatePost {
+
+        private record StoredPost(long authorId, String title, String content) {}
+
+        private ResultActions patchAs(Long callerId, String body) throws Exception {
+            MockHttpServletRequestBuilder request = MockMvcRequestBuilders.patch("/posts/updatepost")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body);
+            if (callerId != null) {
+                request.with(asUser(callerId));
+            }
+            return mockMvc.perform(request);
+        }
+
+        private StoredPost stored(long postId) {
+            return jdbcClient.sql("SELECT author_id, title, content FROM post WHERE id = :id")
+                    .param("id", postId)
+                    .query((rs, n) -> new StoredPost(rs.getLong("author_id"), rs.getString("title"), rs.getString("content")))
+                    .single();
+        }
+
+        @Test
+        @DisplayName("200 - author updates title and content")
+        void shouldReturn200_andUpdate_whenCallerIsTheAuthor() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+
+            patchAs(authorId, """
+                    {"id": %d, "title": "updated title", "content": "updated content"}
+                    """.formatted(postId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(postId))
+                    .andExpect(jsonPath("$.authorId").value(authorId))
+                    .andExpect(jsonPath("$.title").value("updated title"))
+                    .andExpect(jsonPath("$.content").value("updated content"));
+
+            assertThat(stored(postId)).isEqualTo(new StoredPost(authorId, "updated title", "updated content"));
+            assertThat(jdbcClient.sql("SELECT count(*) FROM post").query(Long.class).single())
+                    .as("update, not insert").isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("200 - only title sent: content is left untouched")
+        void shouldKeepContent_whenOnlyTitleIsSent() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+
+            patchAs(authorId, """
+                    {"id": %d, "title": "only title"}
+                    """.formatted(postId))
+                    .andExpect(status().isOk());
+
+            StoredPost after = stored(postId);
+            assertThat(after.title()).isEqualTo("only title");
+            assertThat(after.content()).isEqualTo("content");
+        }
+
+        @Test
+        @DisplayName("200 - only content sent: title is left untouched")
+        void shouldKeepTitle_whenOnlyContentIsSent() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+            String originalTitle = stored(postId).title();
+
+            patchAs(authorId, """
+                    {"id": %d, "content": "only content"}
+                    """.formatted(postId))
+                    .andExpect(status().isOk());
+
+            StoredPost after = stored(postId);
+            assertThat(after.title()).isEqualTo(originalTitle);
+            assertThat(after.content()).isEqualTo("only content");
+        }
+
+        @Test
+        @DisplayName("403 - caller is not the author: post unchanged")
+        void shouldReturn403_whenCallerIsNotTheAuthor() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+            StoredPost before = stored(postId);
+            long otherUserId = insertUser("intruder-" + UUID.randomUUID() + "@example.com");
+
+            patchAs(otherUserId, """
+                    {"id": %d, "title": "hacked", "content": "hacked"}
+                    """.formatted(postId))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(403))
+                    .andExpect(jsonPath("$.title").value(PostErrors.notPostAuthorMessage))
+                    .andExpect(jsonPath("$.type").value(PostErrors.notPostAuthorUri))
+                    .andExpect(jsonPath("$.detail").value("you are not the author of post " + postId));
+
+            assertThat(stored(postId)).isEqualTo(before);
+        }
+
+        @Test
+        @DisplayName("404 - post does not exist")
+        void shouldReturn404_whenPostDoesNotExist() throws Exception {
+            patchAs(authorId, """
+                    {"id": %d, "title": "t", "content": "c"}
+                    """.formatted(Long.MAX_VALUE))
+                    .andExpect(status().isNotFound())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.status").value(404))
+                    .andExpect(jsonPath("$.title").value(PostErrors.postNotFoundMessage))
+                    .andExpect(jsonPath("$.type").value(PostErrors.postNotFoundUri));
+        }
+
+        @Test
+        @DisplayName("400 - id missing")
+        void shouldReturn400_whenIdIsMissing() throws Exception {
+            patchAs(authorId, """
+                    {"title": "t", "content": "c"}
+                    """)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentType(PROBLEM_JSON))
+                    .andExpect(jsonPath("$.title").value("id is mandatory"));
+        }
+
+        @ParameterizedTest(name = "title=\"{0}\"")
+        @ValueSource(strings = {"", " ", "   "})
+        @DisplayName("400 - title sent but blank: post unchanged")
+        void shouldReturn400_whenTitleIsBlank(String title) throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+            StoredPost before = stored(postId);
+
+            patchAs(authorId, """
+                    {"id": %d, "title": "%s"}
+                    """.formatted(postId, title))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("title is invalid"));
+
+            assertThat(stored(postId)).isEqualTo(before);
+        }
+
+        @ParameterizedTest(name = "content=\"{0}\"")
+        @ValueSource(strings = {"", " ", "\\n\\t "})
+        @DisplayName("400 - content sent but blank: post unchanged")
+        void shouldReturn400_whenContentIsBlank(String blankContent) throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+            StoredPost before = stored(postId);
+
+            patchAs(authorId, """
+                    {"id": %d, "content": "%s"}
+                    """.formatted(postId, blankContent))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("content is invalid"));
+
+            assertThat(stored(postId)).isEqualTo(before);
+        }
+
+        @Test
+        @DisplayName("200 - multi-line content is accepted")
+        void shouldAcceptMultilineContent() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+
+            patchAs(authorId, """
+                    {"id": %d, "content": "line one\\nline two"}
+                    """.formatted(postId))
+                    .andExpect(status().isOk());
+
+            assertThat(stored(postId).content()).isEqualTo("line one\nline two");
+        }
+
+        @Test
+        @DisplayName("400 - title longer than 255 characters")
+        void shouldReturn400_whenTitleIsTooLong() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+
+            patchAs(authorId, """
+                    {"id": %d, "title": "%s"}
+                    """.formatted(postId, "a".repeat(256)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.title").value("title is invalid"));
+        }
+
+        @Test
+        @DisplayName("200 - title of exactly 255 characters is accepted")
+        void shouldAcceptTitleOf255Characters() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+            String title = "a".repeat(255);
+
+            patchAs(authorId, """
+                    {"id": %d, "title": "%s"}
+                    """.formatted(postId, title))
+                    .andExpect(status().isOk());
+
+            assertThat(stored(postId).title()).isEqualTo(title);
+        }
+
+        @Test
+        @DisplayName("401 - no token: post unchanged")
+        void shouldReturn401_whenNoToken() throws Exception {
+            long postId = insertPost(BASE_TIME).id();
+            StoredPost before = stored(postId);
+
+            patchAs(null, """
+                    {"id": %d, "title": "t", "content": "c"}
+                    """.formatted(postId))
+                    .andExpect(status().isUnauthorized());
+
+            assertThat(stored(postId)).isEqualTo(before);
+        }
+    }
 }

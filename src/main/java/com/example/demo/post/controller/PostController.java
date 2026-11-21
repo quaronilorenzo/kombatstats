@@ -3,6 +3,7 @@ package com.example.demo.post.controller;
 import com.example.demo.post.dto.PostCursor;
 import com.example.demo.post.dto.PostRequest;
 import com.example.demo.post.dto.PostResponse;
+import com.example.demo.post.dto.PostUpdateRequest;
 import com.example.demo.post.entity.Post;
 import com.example.demo.post.service.PostService;
 import com.example.demo.utils.dto.CursorPage;
@@ -49,6 +50,11 @@ public class PostController {
     @GetMapping("/recentposts")
     public Page<PostResponse> findAll(@PageableDefault(size = 20, sort = {"createdAt", "id"}, direction = Sort.Direction.DESC) Pageable pageable){
         return postService.findAll(pageable);
+    }
+
+    @PatchMapping("/updatepost")
+    public ResponseEntity<PostResponse> updatePost(@RequestBody @Valid PostUpdateRequest postUpdateRequest, @AuthenticationPrincipal(errorOnInvalidType = true) Long authorId){
+        return ResponseEntity.ok(postService.updatePost(postUpdateRequest, authorId));
     }
     /*
         Posts with cursor pagination, its more quicker than spring pagination, because it uses indexes on DB.

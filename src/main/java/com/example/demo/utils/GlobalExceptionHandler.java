@@ -2,6 +2,8 @@ package com.example.demo.utils;
 
 import com.example.demo.post.costants.PostErrors;
 import com.example.demo.post.exceptions.DuplicatedPostException;
+import com.example.demo.post.exceptions.NotPostAuthorException;
+import com.example.demo.post.exceptions.PostNotFoundException;
 import com.example.demo.sport.exceptions.SportNotFoundException;
 import com.example.demo.user.costants.UserErrors;
 import com.example.demo.user.exceptions.DuplicatedUserException;
@@ -107,6 +109,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "a post with title " + ex.getMessage() + " already exists");
         problem.setTitle(PostErrors.postDuplicatedMessage);
         problem.setType(URI.create(PostErrors.postDuplicatedUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
+    @ExceptionHandler(PostNotFoundException.class)
+    public ResponseEntity<Object> handlePostNotFound(PostNotFoundException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle(PostErrors.postNotFoundMessage);
+        problem.setType(URI.create(PostErrors.postNotFoundUri));
+        return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
+                HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
+    @ExceptionHandler(NotPostAuthorException.class)
+    public ResponseEntity<Object> handleNotPostAuthor(NotPostAuthorException ex, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        problem.setTitle(PostErrors.notPostAuthorMessage);
+        problem.setType(URI.create(PostErrors.notPostAuthorUri));
         return super.handleExceptionInternal(ex, problem, new HttpHeaders(),
                 HttpStatusCode.valueOf(problem.getStatus()), request);
     }

@@ -3,19 +3,26 @@ package com.example.demo.post.service;
 import com.example.demo.post.dto.PostCursor;
 import com.example.demo.post.dto.PostRequest;
 import com.example.demo.post.dto.PostResponse;
+import com.example.demo.post.dto.PostUpdateRequest;
 import com.example.demo.post.dto.mapper.PostMapper;
 import com.example.demo.post.entity.Post;
 import com.example.demo.post.exceptions.DuplicatedPostException;
+import com.example.demo.post.exceptions.NotPostAuthorException;
+import com.example.demo.post.exceptions.PostNotFoundException;
 import com.example.demo.post.repository.PostRepository;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.service.UserService;
 import com.example.demo.utils.dto.CursorPage;
+import org.springframework.boot.context.config.ConfigDataResourceNotFoundException;
 import org.springframework.data.domain.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Service
 public class PostService {
@@ -69,6 +76,18 @@ public class PostService {
                 .map(postMapper::postToPostResponse);
     }
 
+    @Transactional
+    public PostResponse updatePost(PostUpdateRequest postUpdateRequest, Long authorId){
+        Optional<Post> post = postRepository.findById(postUpdateRequest.id());
+        if(post.isEmpty()){
+            throw new PostNotFoundException("Post does not exists");
+        } else if ( !Objects.equals(post.get().getAuthor().getId(), authorId)) {
+            throw new NotPostAuthorException(post.get().getId());
+        }
+        post.get().setTitle(postUpdateRequest.title());
+        post.get().setContent(postUpdateRequest.content());
+        return postMapper.postToPostResponse(postRepository.save((post.get())));
+    }
 
     private Pageable withStableSort(Pageable pageable){
         return PageRequest.of(

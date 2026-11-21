@@ -6,4 +6,10 @@ public interface PostErrors {
 
     String sortPropertyInvalidUri = "http://localhost:8080/errors/invalid-sort-property";
     String sortPropertyInvalidMessage = "Invalid sort property";
+
+    String postNotFoundUri = "http://localhost:8080/errors/post-not-found";
+    String postNotFoundMessage = "Post not found";
+
+    String notPostAuthorUri = "http://localhost:8080/errors/not-post-author";
+    String notPostAuthorMessage = "Only the author can modify this post";
 }
