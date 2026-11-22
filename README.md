@@ -1,28 +1,86 @@
 # KombatStats
 
-A Spring Boot REST API for managing combat-sports athletes: personal data (name, email, date of birth) and the disciplines they practice (BJJ, Boxing, MMA, Kickboxing, Wrestling). The project is under active development.
+KombatStats is a REST API for people who do combat sports. Athletes sign up, say which disciplines they train (BJJ, Boxing, MMA, Kickboxing, Wrestling), how long they've been at it and whether they compete, and then post to a shared feed.
 
-## Tech Stack
+## Why I'm building this
 
-| Layer      | Technology                                                       |
-|------------|-------------------------------------------------------------------|
-| Language   | Java 25                                                            |
-| Framework  | Spring Boot 3.5.14 (Web, Data JPA, Security, Validation)           |
-| Database   | PostgreSQL                                                         |
-| Migrations | Flyway (run via the Maven plugin — see note below)                 |
-| Mapping    | MapStruct                                                          |
-| Testing    | JUnit 5, Mockito, Spring Security Test                             |
-| Build tool | Maven (wrapper included, no local install required)                |
+Two things I care about meet in this project: combat sports and backend development.
 
-## Prerequisites
+I didn't want another to-do app that stops working the moment you look at it closely. I wanted something I'd keep coming back to, where every new feature makes me deal with the problems a real backend has: who is allowed to do what, how to change a database without losing data, how to keep a feed fast as it grows, how to give clients errors they can actually use.
 
-Before pulling this project, make sure you have:
+So I set myself one rule: every feature ships with its migration, its error handling and its integration tests against a real PostgreSQL. It takes longer, but it's how I learn properly, and it's the part of the work I enjoy most. The project is still growing, and every commit taught me something.
 
-- **JDK 25** installed and selected (`java -version`)
-- **Git**
-- **PostgreSQL** reachable at `localhost:5433` (not the default `5432`), either installed locally or run via Docker (see below). You do **not** need Maven installed — this repo ships the Maven Wrapper (`mvnw` / `mvnw.cmd`).
+If you're reviewing this, the section below is the one worth reading.
 
-## Getting Started
+## The parts I'm most proud of
+
+### Authentication I wrote myself
+
+I could have dropped in a ready-made solution. I wanted to understand every step instead, so I built the JWT flow by hand on top of Spring Security.
+
+At login the password is checked against a BCrypt hash, and the API returns a token signed with HMAC-SHA256 that expires after 15 minutes ([`JwtService`](src/main/java/com/example/demo/security/JwtService.java)). On every request, a custom filter reads the `Authorization: Bearer` header, verifies the signature and puts the user id in the security context ([`JwtAuthenticationFilter`](src/main/java/com/example/demo/security/JwtAuthenticationFilter.java)). The application keeps no session. Only `/auth/**` is public, and everything else answers `401` without a valid token ([`SecurityConfig`](src/main/java/com/example/demo/config/SecurityConfig.java)).
+
+The signing key is never in the repository. It comes from an environment variable.
+
+### You can only touch your own posts
+
+When a user creates, edits or deletes a post, the author id comes from the verified token, never from the request body. Sending someone else's id in the JSON does nothing. Trying to edit or delete a post you didn't write returns `403` with its own error type.
+
+### A feed that stays fast
+
+Classic `LIMIT/OFFSET` pagination gets slower the deeper you go, and it can show the same post twice when new posts arrive while someone is scrolling. I implemented both approaches so I could compare them.
+
+`/posts/recentposts` is standard Spring pagination with a stable sort on `createdAt` and then `id`, so posts with the same timestamp never swap places between pages.
+
+`/posts/recentpostscursor` uses keyset pagination. The client sends back the `createdAt` and `id` of the last post it saw, and the query continues from there. A composite index on `(created_at DESC, id DESC)` makes every page cost the same, whether it's the first or the thousandth.
+
+
+### The database protects itself
+
+I don't trust the application to be the only thing keeping data correct. The schema enforces its own rules: `citext` and `UPPER()` indexes for case-insensitive searches, CHECK constraints on email format, birth dates and years of practice, and unique constraints that the API turns into readable `409` responses.
+
+The migration I'd point to first is [`V1_6_0`](src/main/resources/db/migration/V1_6_0__sport_tables.sql). It replaces a flat table with a proper many-to-many relation between users and sports, where the join table holds the years of practice and competition status. It moves the existing data across, removes the duplicates and nulls the old table allowed, and doesn't invent values that never existed. Every step has a comment explaining why it's there.
+
+### Errors clients can rely on
+
+Every error, from a validation failure to a constraint violation or a missing resource, goes through a single handler and comes back in the same RFC 9457 `ProblemDetail` format ([`GlobalExceptionHandler`](src/main/java/com/example/demo/utils/GlobalExceptionHandler.java)):
+
+```json
+{
+  "type": "http://localhost:8080/errors/not-post-author",
+  "title": "Only the author can modify or delete this post",
+  "status": 403,
+  "detail": "you are not the author of post 42",
+  "instance": "/posts/deletepost"
+}
+```
+
+### Tests that hit a real database
+
+The integration tests start the whole application against a disposable PostgreSQL 16 container using Testcontainers. Before each test, the same Flyway migrations as production run, so constraints and indexes are tested for real. Authenticated tests send a real token generated by `JwtService` and go through the actual security filter. Nothing is mocked away. Services and JWT logic also have unit tests with Mockito ([`AbstractIntegrationTest`](src/test/java/com/example/demo/testcontainers/AbstractIntegrationTest.java)).
+
+## Tech stack
+
+| Area       | Tools                                                          |
+|------------|----------------------------------------------------------------|
+| Language   | Java 25                                                         |
+| Framework  | Spring Boot 3.5.14 (Web, Data JPA, Security, Validation)       |
+| Security   | Spring Security, JJWT 0.13 (HS256), BCrypt                      |
+| Database   | PostgreSQL                                                      |
+| Migrations | Flyway 11                                                       |
+| Mapping    | MapStruct 1.6                                                   |
+| Testing    | JUnit 5, Mockito, AssertJ, MockMvc, Spring Security Test, Testcontainers |
+| Build      | Maven (wrapper included)                                        |
+
+## Running it locally
+
+### What you need
+
+- JDK 25
+- Docker, for the local database and the tests
+- Git
+
+You don't need to install Maven. The repository includes the wrapper (`mvnw` / `mvnw.cmd`).
 
 ### 1. Clone the repository
 
@@ -33,9 +91,7 @@ cd KombatStats
 
 ### 2. Start PostgreSQL
 
-The app expects a database reachable at `jdbc:postgresql://localhost:5433/postgres` with user `kombat` / password `kombat` (see `src/main/resources/application.properties` and `flyway.conf`). These are local development defaults committed to the repo — fine for running locally, but don't reuse them for anything beyond your machine.
-
-The quickest way to get a matching instance with Docker (the container's `kombat` user is created as superuser, which is needed for the `citext` extension used by the migrations):
+The app expects PostgreSQL on `localhost:5433` (not the usual 5432), database `postgres`, user and password `kombat`/`kombat`. These values are in `application.properties` and `flyway.conf` and are only meant for local development.
 
 ```bash
 docker run --name kombatstats-db \
@@ -43,84 +99,169 @@ docker run --name kombatstats-db \
   -e POSTGRES_PASSWORD=kombat \
   -e POSTGRES_DB=postgres \
   -p 5433:5432 \
-  -d postgres
+  -d postgres:16
 ```
 
-If you'd rather use an existing local PostgreSQL install, create a superuser role `kombat`/`kombat` and make sure the server listens on port `5433` (or update `application.properties` and `flyway.conf` to match your setup).
+The `kombat` user is created as a superuser, which the migrations need in order to enable the `citext` extension.
 
-### 3. Run the database migrations
+### 3. Set the environment variables ( we dont want any secret keys taken from any bots hehe )
 
-Flyway is wired in as a **build plugin only** (there is no `flyway-core` runtime dependency), so migrations are **not** applied automatically on application startup, and Hibernate's `ddl-auto` isn't configured either — nothing will create the schema for you. Run this once (and again any time a new migration is added) before starting the app:
+| Variable     | Required | What it does |
+|--------------|----------|--------------|
+| `JWT_SECRET` | Yes      | Base64-encoded key used to sign and verify tokens (HMAC-SHA256). It must decode to at least 32 bytes, or the application won't start. |
+
+Token lifetime is set in `application.properties` (`app.jwt.expiration-minutes=15`).
+
+To generate a key:
 
 ```bash
-./mvnw flyway:migrate      # macOS/Linux/Git Bash
+# macOS / Linux / Git Bash
+openssl rand -base64 32
+```
+
+```powershell
+# Windows PowerShell
+$bytes = New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+```
+
+To set it in the current shell:
+
+```bash
+export JWT_SECRET="<your-base64-key>"      # macOS / Linux / Git Bash
+```
+
+```powershell
+$env:JWT_SECRET = "<your-base64-key>"      # Windows PowerShell
+```
+
+In IntelliJ IDEA, go to Run > Edit Configurations > KombatStatsApplication > Environment variables and add `JWT_SECRET=<your-base64-key>`.
+
+Don't commit a real key. The tests use their own test-only key in `src/test/resources/application.properties`, so you don't need `JWT_SECRET` to run them.
+
+### 4. Apply the migrations
+
+At runtime, Flyway only runs as a Maven plugin, so migrations aren't applied when the app starts. Run this once, and again whenever a new migration is added:
+
+```bash
+./mvnw flyway:migrate      # macOS / Linux / Git Bash
 mvnw.cmd flyway:migrate    # Windows
 ```
 
-This applies the SQL files under `src/main/resources/db/migration`, creating the `users` and `user_sport` tables.
-
-### 4. Run the application
+### 5. Start the application
 
 ```bash
-./mvnw spring-boot:run      # macOS/Linux/Git Bash
+./mvnw spring-boot:run      # macOS / Linux / Git Bash
 mvnw.cmd spring-boot:run    # Windows
 ```
 
-The API starts on `http://localhost:8080`.
+The API runs on `http://localhost:8080`.
 
-## API Overview
+## Endpoints
 
-| Method | Endpoint             | Description                          |
-|--------|-----------------------|---------------------------------------|
-| POST   | `/users`              | Create a new user                     |
-| GET    | `/users/allusers`     | List all users                        |
-| GET    | `/users/userbyid`     | Get a user by `id` (query param)      |
-| GET    | `/users/userbyname`   | Get a user by `name` (first name, case-insensitive) |
+Everything except `/auth/**` requires the `Authorization: Bearer <token>` header.
 
-Example — create a user:
+**Authentication**
+
+| Method | Endpoint         | Description |
+|--------|------------------|-------------|
+| POST   | `/auth/register` | Register a user and their sports (`201` with a `Location` header) |
+| POST   | `/auth/login`    | Exchange email and password for an `accessToken` |
+
+**Users**
+
+| Method | Endpoint                  | Description |
+|--------|---------------------------|-------------|
+| GET    | `/users/me`               | Profile of the logged-in user |
+| GET    | `/users/allusers`         | All users |
+| GET    | `/users/userbyid?id=`     | A user by id |
+| GET    | `/users/userbyname?name=` | Users by first name, case-insensitive |
+
+**Posts**
+
+| Method | Endpoint                                                | Description |
+|--------|---------------------------------------------------------|-------------|
+| POST   | `/posts`                                                | Create a post as the logged-in user |
+| GET    | `/posts/recentposts?page=&size=`                        | Feed with offset pagination (default 20, newest first) |
+| GET    | `/posts/recentpostscursor?lastCreatedAt=&lastId=&size=` | Feed with cursor pagination (size 1 to 50, default 10) |
+| GET    | `/posts/postsbyauthor?authorId=`                        | All posts by one author |
+| PATCH  | `/posts/updatepost`                                     | Edit one of your own posts |
+| DELETE | `/posts/deletepost?id=`                                 | Delete one of your own posts (`204`) |
+
+### A quick walkthrough ( you can use also a HTTP Client like Bruno or Postman )
 
 ```bash
-curl -X POST http://localhost:8080/users \
+# Register
+curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{
         "firstName": "Claudia",
         "lastName": "Rategni",
         "email": "claudia.rategni@gmail.com",
         "birthDate": "2007-04-13",
-        "sport": ["BJJ", "MMA"]
+        "password": "Str0ng!Passw0rd",
+        "sports": [
+          { "sportType": "BJJ", "yearsPracticed": 3.5, "isCompeting": true },
+          { "sportType": "MMA", "yearsPracticed": 1,   "isCompeting": false }
+        ]
       }'
+
+# Log in and copy the accessToken from the response
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "claudia.rategni@gmail.com", "password": "Str0ng!Passw0rd" }'
+
+# Publish a post
+curl -X POST http://localhost:8080/posts \
+  -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{ "title": "First open mat", "content": "Great rolls today." }'
+
+# Read the feed with cursor pagination
+curl "http://localhost:8080/posts/recentpostscursor?size=10" \
+  -H "Authorization: Bearer <accessToken>"
 ```
 
-Valid `sport` values: `BJJ`, `Boxing`, `MMA`, `Kickboxing`, `Wrestling`.
+Accepted values for `sportType`: `BJJ`, `Boxing`, `MMA`, `Kickboxing`, `Wrestling`.
 
-## Running Tests
+## Tests
 
 ```bash
-./mvnw test      # macOS/Linux/Git Bash
-mvnw.cmd test     # Windows
+./mvnw test      # macOS / Linux / Git Bash
+mvnw.cmd test    # Windows
 ```
 
-`UserServiceTest` and `GlobalExceptionHandlerTests` are pure unit tests (Mockito) and need nothing extra. `KombatStatsApplicationTests` boots the full Spring context with `@SpringBootTest`, so **PostgreSQL must be running and migrated (steps 2–3 above) for the full test suite to pass.**
+Docker has to be running. Testcontainers starts a `postgres:16.9` container on its own, so you don't need the local database or `JWT_SECRET` for the tests.
 
-## Project Structure
+## Project structure
+
+The code is organized by feature. Each package holds its own controller, service, repository, entity, DTOs, mapper and exceptions.
 
 ```
 src/main/java/com/example/demo/
-├── KombatStatsApplication.java     # entry point
-├── config/SecurityConfig.java      # security filter chain
-├── user/
-│   ├── controller/                 # REST endpoints
-│   ├── service/                    # business logic
-│   ├── repository/                 # Spring Data JPA repository
-│   ├── entity/                     # User entity, Sport enum
-│   ├── dto/                        # request/response records + MapStruct mapper
-│   ├── exceptions/                 # domain exceptions
-│   └── costants/                   # error messages/URIs
-└── utils/GlobalExceptionHandler.java  # RFC 9457 problem-detail error responses
-src/main/resources/db/migration/    # Flyway SQL migrations
+├── config/      Spring Security configuration
+├── security/    JWT generation and verification
+├── user/        registration, login, user lookup
+├── sport/       sport catalogue
+├── usersport/   user-sport relation with practice data
+├── post/        posts, ownership checks, pagination
+└── utils/       global error handler, CursorPage
+src/main/resources/db/migration/   Flyway migrations
+src/test/                          unit and integration tests, JSON fixtures
 ```
 
-## Notes
+## What's next
 
-- **Security is fully open** for now: `SecurityConfig` permits all requests and disables CSRF. This is a local-development state, not a production-ready configuration.
-- The app uses the default `postgres` database/`public` schema rather than a dedicated database — update `application.properties` and `flyway.conf` together if you change this.
+- User and admin roles (in progress)
+- Athlete stats and fight records, the part that gives the project its name
+- Refresh tokens
+- OpenAPI documentation
+- Docker Compose for one-command startup, and CI on GitHub Actions
+- Kubernetes, Redis
+
+## About me
+
+I'm Lorenzo. I like taking things apart until I understand how they work, and this project is where I do that with backend development. 
+
+If you'd like to talk, you can find me on LinkedIn or write to lorenzoquaroni24@gmail.com.
