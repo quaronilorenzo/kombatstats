@@ -1,5 +1,6 @@
 {
   "firstName": "Lorenzo",
   "lastName": "Quaroni",
-  "birthDate": "1999-04-23"
+  "birthDate": "1999-04-23",
+  "role": "USER"
 }

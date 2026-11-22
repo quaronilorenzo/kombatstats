@@ -4,6 +4,7 @@ import com.example.demo.sport.entity.SportType;
 import com.example.demo.user.dto.UserRequest;
 import com.example.demo.user.dto.UserResponse;
 import com.example.demo.user.dto.mapper.UserMapper;
+import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.exceptions.DuplicatedUserException;
 import com.example.demo.user.exceptions.UnauthenticatedUserException;
@@ -122,7 +123,7 @@ public class UserServiceTest {
             List<UserSport> savedSports = List.of(new UserSport());
             List<UserSportResponse> sportResponses =
                     List.of(new UserSportResponse(10L, SportType.BJJ, new BigDecimal("4.5"), true));
-            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, sportResponses);
+            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, Role.USER, sportResponses);
 
             when(passwordEncoder.encode(PASSWORD)).thenReturn(HASHED_PASSWORD);
             when(userMapper.userRequestToUser(request)).thenReturn(mapped);
@@ -166,8 +167,8 @@ public class UserServiceTest {
         void shouldReturnAllUsers_whenUsersExist() {
             User first = persisted(newUser(), 1L);
             User second = persisted(newUser(), 2L);
-            UserResponse firstResponse = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, List.of());
-            UserResponse secondResponse = new UserResponse(2L, FIRST_NAME, LAST_NAME, BIRTH_DATE, List.of());
+            UserResponse firstResponse = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, Role.USER, List.of());
+            UserResponse secondResponse = new UserResponse(2L, FIRST_NAME, LAST_NAME, BIRTH_DATE, Role.USER, List.of());
             when(userRepository.findAll()).thenReturn(List.of(first, second));
             when(userSportService.findByUserId(1L)).thenReturn(List.of());
             when(userSportService.findByUserId(2L)).thenReturn(List.of());
@@ -200,7 +201,7 @@ public class UserServiceTest {
             List<UserSport> sports = List.of(new UserSport());
             List<UserSportResponse> sportResponses =
                     List.of(new UserSportResponse(10L, SportType.BJJ, new BigDecimal("4.5"), true));
-            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, sportResponses);
+            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, Role.USER, sportResponses);
             when(userRepository.findById(1L)).thenReturn(Optional.of(saved));
             when(userSportService.findByUserId(1L)).thenReturn(sports);
             when(userSportMapper.userSportsToUserSportResponses(sports)).thenReturn(sportResponses);
@@ -230,7 +231,7 @@ public class UserServiceTest {
         @DisplayName("returns the user of the given id")
         void shouldReturnUser_whenIdIsPresent() {
             User saved = persisted(newUser(), 1L);
-            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, List.of());
+            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, Role.USER, List.of());
             when(userRepository.findById(1L)).thenReturn(Optional.of(saved));
             when(userSportService.findByUserId(1L)).thenReturn(List.of());
             when(userSportMapper.userSportsToUserSportResponses(List.of())).thenReturn(List.of());
@@ -267,7 +268,7 @@ public class UserServiceTest {
         @DisplayName("returns every user matching the first name")
         void shouldReturnUsers_whenFirstNameExists() {
             User saved = persisted(newUser(), 1L);
-            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, List.of());
+            UserResponse expected = new UserResponse(1L, FIRST_NAME, LAST_NAME, BIRTH_DATE, Role.USER, List.of());
             when(userRepository.findByFirstNameIgnoreCase(FIRST_NAME)).thenReturn(List.of(saved));
             when(userSportService.findByUserId(1L)).thenReturn(List.of());
             when(userSportMapper.userSportsToUserSportResponses(List.of())).thenReturn(List.of());

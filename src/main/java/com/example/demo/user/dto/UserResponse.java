@@ -1,5 +1,6 @@
 package com.example.demo.user.dto;
 
+import com.example.demo.user.entity.Role;
 import com.example.demo.usersport.dto.UserSportResponse;
 
 import java.time.LocalDate;
@@ -10,6 +11,7 @@ public record UserResponse(
         String firstName,
         String lastName,
         LocalDate birthDate,
+        Role role,
         List<UserSportResponse> sports
 ) {
 }

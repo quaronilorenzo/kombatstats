@@ -29,6 +29,10 @@ public class User {
     @Column(nullable = false)
     @NotBlank
     private String hashPassword;
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Role role = Role.USER;
     public User(){}
     public User(LocalDate birthDate, String email, String lastName, String firstName) {
         this.birthDate = birthDate;
@@ -82,6 +86,14 @@ public class User {
 
     public void setHashPassword(String hashPassword) {
         this.hashPassword = hashPassword;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
     }
 
 }

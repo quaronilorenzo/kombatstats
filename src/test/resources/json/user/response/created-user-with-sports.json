@@ -2,6 +2,7 @@
   "firstName": "Lorenzo",
   "lastName": "Quaroni",
   "birthDate": "1999-04-23",
+  "role": "USER",
   "sports": [
     {
       "sportType": "BJJ",
