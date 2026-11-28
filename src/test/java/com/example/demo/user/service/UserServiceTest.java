@@ -1,5 +1,6 @@
 package com.example.demo.user.service;
 
+import com.example.demo.config.AdminBootstrapProperties;
 import com.example.demo.sport.entity.SportType;
 import com.example.demo.user.dto.UserRequest;
 import com.example.demo.user.dto.UserResponse;
@@ -19,6 +20,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,6 +34,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -35,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -287,6 +295,175 @@ public class UserServiceTest {
                     .hasMessage("user with first name Nobody not found");
 
             verify(userSportService, never()).findByUserId(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("createInitialAdmin(AdminBootstrapProperties)")
+    class CreateInitialAdmin {
+
+        private static final String ADMIN_EMAIL = "admin@kombatstats.com";
+        private static final String ADMIN_PASSWORD = "Adm1n!Passw0rd";
+        private static final String ADMIN_FIRST_NAME = "Ada";
+        private static final String ADMIN_LAST_NAME = "Lovelace";
+        private static final LocalDate ADMIN_BIRTH_DATE = LocalDate.of(1990, 12, 10);
+
+        private static AdminBootstrapProperties validProperties() {
+            return new AdminBootstrapProperties(ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE);
+        }
+
+        private void verifyNothingCreated() {
+            verify(userRepository, never()).save(any());
+            verify(passwordEncoder, never()).encode(any());
+        }
+
+        static Stream<Arguments> incompleteProperties() {
+            return Stream.of(
+                    Arguments.of("email null", new AdminBootstrapProperties(null, ADMIN_PASSWORD, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE)),
+                    Arguments.of("email empty", new AdminBootstrapProperties("", ADMIN_PASSWORD, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE)),
+                    Arguments.of("email blank", new AdminBootstrapProperties("   ", ADMIN_PASSWORD, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE)),
+                    Arguments.of("password null", new AdminBootstrapProperties(ADMIN_EMAIL, null, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE)),
+                    Arguments.of("password empty", new AdminBootstrapProperties(ADMIN_EMAIL, "", ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE)),
+                    Arguments.of("first name null", new AdminBootstrapProperties(ADMIN_EMAIL, ADMIN_PASSWORD, null, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE)),
+                    Arguments.of("first name blank", new AdminBootstrapProperties(ADMIN_EMAIL, ADMIN_PASSWORD, " ", ADMIN_LAST_NAME, ADMIN_BIRTH_DATE)),
+                    Arguments.of("last name null", new AdminBootstrapProperties(ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_FIRST_NAME, null, ADMIN_BIRTH_DATE)),
+                    Arguments.of("last name blank", new AdminBootstrapProperties(ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_FIRST_NAME, " ", ADMIN_BIRTH_DATE)),
+                    Arguments.of("birth date null", new AdminBootstrapProperties(ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, null)),
+                    Arguments.of("everything empty", new AdminBootstrapProperties("", "", "", "", null))
+            );
+        }
+
+        @Test
+        @DisplayName("does nothing when an admin already exists, even with a valid configuration")
+        void shouldSkip_whenAdminAlreadyExists() {
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(true);
+
+            userService.createInitialAdmin(validProperties());
+
+            verify(userRepository, never()).existsByEmail(any());
+            verifyNothingCreated();
+        }
+
+        @Test
+        @DisplayName("does nothing when an admin already exists and the configuration is empty")
+        void shouldSkip_whenAdminAlreadyExistsAndConfigurationIsEmpty() {
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(true);
+
+            userService.createInitialAdmin(new AdminBootstrapProperties("", "", "", "", null));
+
+            verifyNothingCreated();
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("incompleteProperties")
+        @DisplayName("does nothing and does not throw when the configuration is incomplete")
+        void shouldSkip_whenConfigurationIsIncomplete(String description, AdminBootstrapProperties properties) {
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+
+            userService.createInitialAdmin(properties);
+
+            verify(userRepository, never()).existsByEmail(any());
+            verifyNothingCreated();
+        }
+
+        @ParameterizedTest(name = "password=\"{0}\"")
+        @ValueSource(strings = {
+                "Sh0rt!Pass",
+                "str0ng!passw0rd",
+                "STR0NG!PASSW0RD",
+                "Strong!Password",
+                "Str0ngPassw0rd",
+                "Str0ng! Passw0rd",
+                "Aa1!aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        })
+        @DisplayName("does nothing when the password does not meet the password policy")
+        void shouldSkip_whenPasswordIsWeak(String weakPassword) {
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+
+            userService.createInitialAdmin(new AdminBootstrapProperties(
+                    ADMIN_EMAIL, weakPassword, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE));
+
+            verify(userRepository, never()).existsByEmail(any());
+            verifyNothingCreated();
+        }
+
+        @Test
+        @DisplayName("does not create nor promote anyone when the email is already used")
+        void shouldSkip_whenEmailIsAlreadyUsed() {
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+            when(userRepository.existsByEmail(ADMIN_EMAIL)).thenReturn(true);
+
+            userService.createInitialAdmin(validProperties());
+
+            verifyNothingCreated();
+        }
+
+        @Test
+        @DisplayName("creates the admin with role ADMIN, encoded password and the configured data")
+        void shouldCreateAdmin_whenNoAdminExistsAndConfigurationIsValid() {
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+            when(userRepository.existsByEmail(ADMIN_EMAIL)).thenReturn(false);
+            when(passwordEncoder.encode(ADMIN_PASSWORD)).thenReturn(HASHED_PASSWORD);
+
+            userService.createInitialAdmin(validProperties());
+
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepository).save(captor.capture());
+            User saved = captor.getValue();
+            assertThat(saved.getRole()).isEqualTo(Role.ADMIN);
+            assertThat(saved.getEmail()).isEqualTo(ADMIN_EMAIL);
+            assertThat(saved.getFirstName()).isEqualTo(ADMIN_FIRST_NAME);
+            assertThat(saved.getLastName()).isEqualTo(ADMIN_LAST_NAME);
+            assertThat(saved.getBirthDate()).isEqualTo(ADMIN_BIRTH_DATE);
+            assertThat(saved.getHashPassword()).isEqualTo(HASHED_PASSWORD).isNotEqualTo(ADMIN_PASSWORD);
+            assertThat(saved.getId()).as("new user, id assigned by the database").isNull();
+        }
+
+        @Test
+        @DisplayName("normalizes email (trim + lower case) and trims names before checking and saving")
+        void shouldNormalizeEmailAndNames() {
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+            when(userRepository.existsByEmail(ADMIN_EMAIL)).thenReturn(false);
+            when(passwordEncoder.encode(ADMIN_PASSWORD)).thenReturn(HASHED_PASSWORD);
+
+            userService.createInitialAdmin(new AdminBootstrapProperties(
+                    "  Admin@KombatStats.COM ", ADMIN_PASSWORD, "  Ada ", " Lovelace  ", ADMIN_BIRTH_DATE));
+
+            verify(userRepository).existsByEmail(ADMIN_EMAIL);
+            ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+            verify(userRepository).save(captor.capture());
+            assertThat(captor.getValue().getEmail()).isEqualTo(ADMIN_EMAIL);
+            assertThat(captor.getValue().getFirstName()).isEqualTo(ADMIN_FIRST_NAME);
+            assertThat(captor.getValue().getLastName()).isEqualTo(ADMIN_LAST_NAME);
+        }
+
+        @Test
+        @DisplayName("a mixed-case email that already exists in lower case is detected as taken")
+        void shouldSkip_whenEmailIsTakenWithDifferentCase() {
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+            when(userRepository.existsByEmail(ADMIN_EMAIL)).thenReturn(true);
+
+            userService.createInitialAdmin(new AdminBootstrapProperties(
+                    "ADMIN@KombatStats.com", ADMIN_PASSWORD, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE));
+
+            verifyNothingCreated();
+        }
+
+        @Test
+        @DisplayName("accepts a password exactly at the policy boundaries (12 and 72 characters)")
+        void shouldCreateAdmin_whenPasswordIsAtPolicyBoundaries() {
+            String min = "Str0ng!Passw";
+            String max = "Aa1!" + "a".repeat(68);
+            when(userRepository.existsByRole(Role.ADMIN)).thenReturn(false);
+            when(userRepository.existsByEmail(ADMIN_EMAIL)).thenReturn(false);
+            when(passwordEncoder.encode(any())).thenReturn(HASHED_PASSWORD);
+
+            userService.createInitialAdmin(new AdminBootstrapProperties(ADMIN_EMAIL, min, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE));
+            userService.createInitialAdmin(new AdminBootstrapProperties(ADMIN_EMAIL, max, ADMIN_FIRST_NAME, ADMIN_LAST_NAME, ADMIN_BIRTH_DATE));
+
+            verify(passwordEncoder).encode(min);
+            verify(passwordEncoder).encode(max);
+            verify(userRepository, times(2)).save(any(User.class));
         }
     }
 }

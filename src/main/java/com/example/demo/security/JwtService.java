@@ -29,6 +29,7 @@ public class JwtService {
 
     public String generateToken(User user){
         return Jwts.builder().subject(Long.toString(user.getId()))
+                .claim("Role", user.getRole().name())
                 .issuedAt(Date.from(Instant.now()))
                 .expiration(Date.from(Instant.now().plusSeconds(TimeUnit.MINUTES.toSeconds(exparationTime))))
                 .signWith(jwtKey)
@@ -44,4 +45,5 @@ public class JwtService {
             .getPayload()
             .getSubject());
     }
+
 }

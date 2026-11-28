@@ -1,5 +1,6 @@
 package com.example.demo.security;
 
+import com.example.demo.user.service.UserService;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,9 +18,11 @@ import java.util.List;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
+    private final UserService userService;
     Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserService userService) {
         this.jwtService = jwtService;
+        this.userService = userService;
     }
 
     @Override
@@ -36,6 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String tokenValue = token.substring(7);
         try{
             long userId = jwtService.extractUserId(tokenValue);
+
             UsernamePasswordAuthenticationToken authentication = UsernamePasswordAuthenticationToken.authenticated(userId, null, List.of());
             SecurityContext context = SecurityContextHolder.createEmptyContext();
             context.setAuthentication(authentication);
